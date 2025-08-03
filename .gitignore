@@ -1,0 +1,31 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment files
+.env*
+!.env.example
+
+# Logs and databases
+*.log
+*.db
+*.sqlite*
+
+# Dependencies
+node_modules/
+venv/
+
+# Build outputs
+dist/
+build/
+
+# Large files
+*.tgz
+*.jar
+opus.dll
+get-pip.py
+
+# Data directories
+chroma_data/
+lavalink/
