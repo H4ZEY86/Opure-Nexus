@@ -1,0 +1,123 @@
+{
+  "name": "Opure - Next-Generation Discord Activity",
+  "short_name": "Opure",
+  "description": "Next-generation Discord Activity with AI-powered music experiences, futuristic UI, and real-time multiplayer features.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#5865f2",
+  "theme_color": "#5865f2",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["music", "entertainment", "social"],
+  
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Main interface on desktop"
+    },
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "375x812",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile interface"
+    }
+  ],
+  
+  "prefer_related_applications": false,
+  "related_applications": [],
+  
+  "shortcuts": [
+    {
+      "name": "Music Player",
+      "short_name": "Music",
+      "description": "Open the music player",
+      "url": "/music",
+      "icons": [
+        {
+          "src": "/icons/music-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "description": "Open application settings",
+      "url": "/settings",
+      "icons": [
+        {
+          "src": "/icons/settings-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "audio",
+          "accept": ["audio/*", ".mp3", ".wav", ".ogg", ".m4a"]
+        }
+      ]
+    }
+  },
+  
+  "protocol_handlers": [
+    {
+      "protocol": "web+opure",
+      "url": "/?action=%s"
+    }
+  ],
+  
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}

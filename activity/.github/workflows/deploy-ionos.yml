@@ -1,0 +1,144 @@
+# GitHub Actions workflow for IONOS deployment
+name: Deploy to IONOS
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # Allow manual deployment
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: |
+          activity/package-lock.json
+          activity/client/package-lock.json
+          activity/server/package-lock.json
+
+    # Install dependencies
+    - name: Install root dependencies
+      working-directory: ./activity
+      run: npm ci
+
+    - name: Install client dependencies
+      working-directory: ./activity/client
+      run: npm ci
+
+    - name: Install server dependencies
+      working-directory: ./activity/server
+      run: npm ci
+
+    # Build client
+    - name: Build client
+      working-directory: ./activity/client
+      env:
+        VITE_DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+        VITE_API_URL: https://api.opure.uk
+        VITE_WS_URL: wss://api.opure.uk
+        VITE_NODE_ENV: production
+        VITE_ENABLE_ANALYTICS: true
+        VITE_ENABLE_ERROR_REPORTING: true
+      run: npm run build
+
+    # Build server
+    - name: Build server
+      working-directory: ./activity/server
+      run: npm run build
+
+    # Create deployment package
+    - name: Create deployment structure
+      run: |
+        mkdir -p deploy/public
+        mkdir -p deploy/server
+        cp -r activity/client/dist/* deploy/public/
+        cp -r activity/server/dist/* deploy/server/
+        cp activity/server/package.json deploy/server/
+        cp activity/server/package-lock.json deploy/server/
+        
+        # Create IONOS-specific files
+        echo "RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule ^(.*)$ /index.html [QSA,L]
+        
+        # Security headers
+        Header always set X-Content-Type-Options nosniff
+        Header always set X-Frame-Options DENY
+        Header always set X-XSS-Protection \"1; mode=block\"
+        Header always set Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\"
+        Header always set Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://discord.com https://*.discord.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; media-src 'self' blob: https: http:; connect-src 'self' wss: https: ws:; frame-src 'self' https://discord.com https://*.discord.com; worker-src 'self' blob:\"
+        
+        # Cache control
+        <FilesMatch \"\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$\">
+            ExpiresActive On
+            ExpiresDefault \"access plus 1 month\"
+        </FilesMatch>
+        
+        # Compression
+        <IfModule mod_deflate.c>
+            AddOutputFilterByType DEFLATE text/plain
+            AddOutputFilterByType DEFLATE text/html
+            AddOutputFilterByType DEFLATE text/xml
+            AddOutputFilterByType DEFLATE text/css
+            AddOutputFilterByType DEFLATE application/xml
+            AddOutputFilterByType DEFLATE application/xhtml+xml
+            AddOutputFilterByType DEFLATE application/rss+xml
+            AddOutputFilterByType DEFLATE application/javascript
+            AddOutputFilterByType DEFLATE application/x-javascript
+        </IfModule>" > deploy/public/.htaccess
+
+    # Upload to IONOS via FTP (if FTP credentials are available)
+    - name: Deploy to IONOS via FTP
+      if: ${{ secrets.IONOS_FTP_HOST && secrets.IONOS_FTP_USER && secrets.IONOS_FTP_PASS }}
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.IONOS_FTP_HOST }}
+        username: ${{ secrets.IONOS_FTP_USER }}
+        password: ${{ secrets.IONOS_FTP_PASS }}
+        local-dir: ./deploy/public/
+        server-dir: /
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/.env*
+          **/README.md
+
+    # Create deployment artifacts for manual upload
+    - name: Create deployment archive
+      run: |
+        cd deploy
+        tar -czf opure-discord-activity-$(date +%Y%m%d-%H%M%S).tar.gz public/
+        ls -la *.tar.gz
+
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: opure-deployment-package
+        path: deploy/*.tar.gz
+        retention-days: 30
+
+    # Optional: Deploy server to separate hosting (Railway, Render, etc.)
+    - name: Deploy server to Railway
+      if: ${{ secrets.RAILWAY_TOKEN }}
+      working-directory: ./activity/server
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        npm install -g @railway/cli
+        railway login --token $RAILWAY_TOKEN
+        railway up

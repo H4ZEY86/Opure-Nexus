@@ -1,0 +1,51 @@
+# Opure Discord Activity - IONOS Hosting Configuration
+
+# Enable Rewrite Engine
+RewriteEngine On
+
+# Handle Discord Activity client-side routing
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteRule ^(.*)$ /index.html [QSA,L]
+
+# Essential Headers for Discord Activities
+Header always set X-Frame-Options "ALLOWALL"
+Header always set X-Content-Type-Options nosniff
+
+# CRITICAL: Content Security Policy for Discord Activities
+Header always set Content-Security-Policy "default-src 'self' https://discord.com https://*.discord.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://discord.com https://*.discord.com https://cdn.discordapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://discord.com https://*.discord.com; img-src 'self' data: blob: https: http: https://cdn.discordapp.com; media-src 'self' blob: https: http:; connect-src 'self' wss: https: ws: https://api.opure.uk wss://api.opure.uk https://discord.com https://*.discord.com wss://gateway.discord.gg; frame-src 'self' https://discord.com https://*.discord.com; worker-src 'self' blob:; frame-ancestors https://discord.com https://*.discord.com"
+
+# CORS headers for Discord
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+Header always set Access-Control-Allow-Credentials "true"
+
+# Handle preflight requests
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# Cache Control for static assets
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+    Header set Cache-Control "public, immutable"
+</FilesMatch>
+
+# Cache Control for HTML files (no cache for activity updates)
+<FilesMatch "\.(html|htm)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 0 seconds"
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+</FilesMatch>
+
+# Discord Activity manifest
+<Files "manifest.json">
+    Header set Content-Type "application/json"
+</Files>
+
+# API Redirect - Handle api.opure.uk requests
+RewriteCond %{HTTP_HOST} ^api\.opure\.uk$ [NC]
+RewriteRule ^(.*)$ https://opure.uk/api/$1 [R=301,L]
