@@ -1,0 +1,72 @@
+# Opure.bot - Complete Requirements (Windows Compatible)
+# Scottish AI with Juice WRLD, fortnite, destiny 2, rangers fc obsession + RTX 5070 Ti optimization
+
+# ===== CORE DISCORD BOT =====
+discord.py>=2.3.2
+aiosqlite>=0.19.0
+python-dotenv>=1.0.0
+
+# ===== GPU AI & ML (CUDA 12.9 Ready) =====
+# torch>=2.9.0  # Already installed via nightly build
+# torchaudio     # Already installed via nightly build  
+# torchvision    # Already installed via nightly build
+transformers>=4.35.0
+accelerate
+optimum
+sentence-transformers
+
+# ===== VECTOR DATABASE & EMBEDDINGS =====
+chromadb>=0.4.15
+faiss-cpu  # CPU version for Windows compatibility
+
+# ===== AUDIO PROCESSING =====
+librosa>=0.10.1
+soundfile>=0.12.1
+ffmpeg-python>=0.2.0
+noisereduce>=3.0.0
+pydub>=0.25.1
+
+# ===== SCIENTIFIC COMPUTING =====
+numpy>=1.24.3
+scipy>=1.11.3
+pandas>=2.1.1
+numba>=0.58.1
+
+# ===== PERFORMANCE & MONITORING =====
+psutil>=5.9.5
+GPUtil>=1.4.0
+nvidia-ml-py>=12.535.108
+pynvml>=11.5.0
+
+# ===== CACHING & RATE LIMITING =====
+redis>=5.0.0
+diskcache>=5.6.3
+
+# ===== ENHANCED LOGGING & VALIDATION =====
+structlog>=23.1.0
+pydantic>=2.4.0
+
+# ===== WEB & API =====
+httpx>=0.25.0
+aiohttp>=3.8.6
+websockets>=11.0.3
+
+# ===== UI & CONSOLE =====
+rich>=13.6.0
+
+# ===== MUSIC & YOUTUBE =====
+yt-dlp>=2023.9.24
+youtube-search-python>=1.6.6
+beautifulsoup4
+
+# ===== AI INTEGRATIONS =====
+openai>=1.0.0
+anthropic>=0.7.7
+ollama>=0.1.7
+
+# ===== FIREBASE (OPTIONAL) =====
+firebase-admin>=6.2.0
+
+# ===== TESTING & QUALITY =====
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

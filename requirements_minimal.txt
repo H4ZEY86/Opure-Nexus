@@ -1,0 +1,5 @@
+# Minimal requirements for Discord bot to run without AI
+discord.py>=2.3.2
+aiosqlite>=0.19.0
+python-dotenv>=1.0.0
+asyncio
