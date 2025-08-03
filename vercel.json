@@ -1,24 +1,3 @@
 {
-  "version": 2,
-  "buildCommand": "cd activity/server && npm install && npm run vercel-build",
-  "builds": [
-    {
-      "src": "activity/server/src/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "activity/server/src/index.ts"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "activity/server/src/index.ts": {
-      "maxDuration": 30
-    }
-  }
+  "version": 2
 }
