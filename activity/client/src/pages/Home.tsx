@@ -1,7 +1,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { Play, Users, Zap, Sparkles } from 'lucide-react'
-import { useDiscord } from '@/hooks/useDiscord'
+import { useDiscord } from '../hooks/useDiscord'
 import { useNavigate } from 'react-router-dom'
 
 export default function Home() {

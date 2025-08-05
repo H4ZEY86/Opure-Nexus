@@ -43,28 +43,59 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
   const [ready, setReady] = useState(false)
 
   const authenticate = async () => {
-    if (!discordSdk) {
-      console.error('❌ Discord SDK not initialized')
-      setError('Discord SDK not ready. Please wait and try again.')
-      return
-    }
-
     try {
       setIsLoading(true)
       setError(null)
-      console.log('🔐 Starting Discord Activity authentication...')
-
-      // For Discord Activities, we use authenticate instead of authorize
-      // This provides direct access to user info without OAuth2 code exchange
-      console.log('🎮 Using Discord Activity authenticate method...')
       
-      const authResult = await discordSdk.commands.authenticate({
-        scope: [
-          'identify', // Get user info
-          'guilds', // Access guild info
-          'rpc.activities.write', // Write activity data
-        ],
+      console.log('🔐 Starting Discord Activity authentication...')
+      console.log('🔍 SDK state:', { 
+        hasSdk: !!discordSdk, 
+        isReady: ready, 
+        error: error 
       })
+      
+      // Ensure SDK is ready
+      if (!discordSdk || !ready) {
+        throw new Error('Discord SDK not ready. Please refresh the Activity and try again.')
+      }
+
+      console.log('✅ SDK ready, proceeding with authentication...')
+
+      // Use Discord Activity authenticate method with proper scopes
+      console.log('🎮 Calling Discord authenticate...')
+      console.log('🔍 Available SDK commands:', Object.keys(discordSdk.commands || {}))
+      
+      // Retry authentication with different scope combinations
+      let authResult = null
+      const scopeAttempts = [
+        ['identify', 'rpc.activities.write', 'applications.commands'],
+        ['identify', 'rpc.activities.write'],
+        ['identify']
+      ]
+      
+      for (const scopes of scopeAttempts) {
+        try {
+          console.log(`🔄 Attempting authentication with scopes: ${scopes.join(', ')}`)
+          
+          authResult = await discordSdk.commands.authenticate({
+            scope: scopes
+          })
+          
+          console.log('✅ Authentication successful with scopes:', scopes)
+          break
+          
+        } catch (scopeError) {
+          console.warn(`⚠️ Authentication failed with scopes ${scopes.join(', ')}:`, scopeError)
+          
+          if (scopes === scopeAttempts[scopeAttempts.length - 1]) {
+            throw scopeError // Re-throw the last error
+          }
+        }
+      }
+      
+      if (!authResult) {
+        throw new Error('All authentication attempts failed')
+      }
 
       console.log('✅ Discord Activity authentication successful:', {
         userId: authResult.user?.id,
@@ -80,58 +111,53 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       }
 
       // For Discord Activities, we can work directly with the Discord user data
-      // No need for server-side OAuth2 exchange
       const userData = {
         id: discordUser.id,
         username: discordUser.username,
         discriminator: discordUser.discriminator,
         avatar: discordUser.avatar,
         global_name: discordUser.global_name,
+        bot: (discordUser as any).bot ?? false,
+        avatar_decoration_data: (discordUser as any).avatar_decoration_data ?? null
       }
 
       console.log('👤 User authenticated:', userData.username)
       setUser(userData)
 
-      // Optional: Exchange with server for additional app-specific data
+      // Optional: Sync with server for app-specific data
       try {
-        console.log('🔄 Syncing with server for app-specific data...')
+        console.log('🔄 Syncing with server...')
         const response = await fetch(buildApiUrl('/api/auth/activity-sync'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${access_token}`, // Use Discord's access token
+            'Authorization': `Bearer ${access_token}`
           },
-          body: JSON.stringify({ 
-            user: userData,
-            discord_access_token: access_token 
-          }),
+          body: JSON.stringify({ user: userData, discord_access_token: access_token })
         })
 
         if (response.ok) {
           const serverData = await response.json()
-          console.log('✅ Server sync successful:', serverData)
-          
-          // Store server-provided JWT if available
+          console.log('✅ Server sync successful')
           if (serverData.token) {
             localStorage.setItem('auth_token', serverData.token)
           }
         } else {
-          console.warn('⚠️ Server sync failed, continuing with Discord-only auth')
+          console.warn('⚠️ Server sync failed with status:', response.status)
         }
       } catch (serverError) {
-        console.warn('⚠️ Could not sync with server:', serverError)
-        // Continue with Discord-only authentication
+        console.warn('⚠️ Server sync failed, continuing with Discord-only auth:', serverError)
       }
 
-      // Get current channel info
+      // Get channel info if available
       try {
-        const channelData = await discordSdk.commands.getChannel()
-        console.log('📍 Channel data:', channelData)
-        setChannel(channelData)
+        if (discordSdk.commands.getChannel) {
+          const channelData = await discordSdk.commands.getChannel()
+          console.log('📍 Channel data:', channelData)
+          setChannel(channelData)
+        }
       } catch (channelError) {
         console.warn('⚠️ Could not get channel info:', channelError)
-        // Not critical for authentication
       }
 
       // Store authentication state
@@ -178,165 +204,79 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         console.log('🎮 Initializing Discord Activity SDK...')
         const clientId = '1388207626944249856'
         
-        // Enhanced Discord Activity detection with more reliable checks
-        const discordUserAgent = navigator.userAgent.includes('Discord')
-        const hasDiscordParent = window.parent !== window
-        const hasAncestorOrigins = window.location.ancestorOrigins?.length > 0
-        const discordReferrer = document.referrer.includes('discord.com')
-        const hasDiscordSDK = typeof (window as any).DiscordSDK !== 'undefined'
+        // Simplified Discord Activity detection
         const inIframe = window.self !== window.top
+        const discordReferrer = document.referrer.includes('discord.com')
         const hasDiscordQuery = window.location.search.includes('frame_id') || 
                                window.location.search.includes('instance_id')
         
-        // Check for Discord Activity specific URL patterns
-        const hasActivityParams = window.location.href.includes('opure.uk') && (
-          hasDiscordQuery || inIframe || hasDiscordParent
-        )
-        
-        const isInDiscord = (
-          discordUserAgent ||
-          hasDiscordSDK ||
-          discordReferrer ||
-          hasActivityParams ||
-          (inIframe && (hasAncestorOrigins || hasDiscordParent))
-        )
+        // Basic Discord context check
+        const isLikelyInDiscord = inIframe || discordReferrer || hasDiscordQuery
         
         console.log('🔍 Environment check:', {
-          isInDiscord,
-          discordUserAgent,
-          hasDiscordParent,
-          hasAncestorOrigins,
-          discordReferrer,
-          hasDiscordSDK,
           inIframe,
+          discordReferrer,
           hasDiscordQuery,
-          hasActivityParams,
+          isLikelyInDiscord,
           referrer: document.referrer,
-          hostname: window.location.hostname,
-          href: window.location.href,
-          search: window.location.search,
-          userAgent: navigator.userAgent
+          url: window.location.href,
+          userAgent: navigator.userAgent.substring(0, 100)
         })
         
-        if (!isInDiscord) {
-          console.log('⚠️ Not running in Discord Activity context')
-          // For development, allow testing outside Discord
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔧 Development mode - creating mock Discord context')
-            setError('Development mode: Discord Activity simulation')
-            setIsLoading(false)
-            return
-          } else {
-            setError('This application must be launched as a Discord Activity')
-            setIsLoading(false)
-            return
-          }
+        if (!isLikelyInDiscord) {
+          console.warn('⚠️ NOT in Discord Activity context!')
+          console.warn('💡 To test this Activity:')
+          console.warn('   1. Open Discord')
+          console.warn('   2. Go to your Discord Application page')
+          console.warn('   3. Use the "Test Activity" button')
+          console.warn('   4. Or invite the Activity to a voice channel')
+          setError('Please open this Activity through Discord, not directly in a browser.')
+          setIsLoading(false)
+          return
         }
 
         console.log('🚀 Creating Discord SDK instance...')
         const sdk = new DiscordSDK(clientId)
         
-        // Enhanced initialization with better error handling and retries
-        let initializationComplete = false
-        let retryCount = 0
-        const maxRetries = 3
+        console.log('⏳ Waiting for Discord SDK to be ready...')
         
-        const initTimeout = setTimeout(() => {
-          if (!initializationComplete) {
-            console.error('⏰ Discord SDK initialization timeout after 20 seconds')
-            setError('Discord Activity initialization timeout. Please restart the Activity.')
-            setIsLoading(false)
-          }
-        }, 20000) // Increased timeout for better reliability
+        // Simplified initialization with timeout
+        const readyPromise = sdk.ready()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SDK initialization timeout')), 15000)
+        )
+        
+        await Promise.race([readyPromise, timeoutPromise])
+        
+        console.log('✅ Discord SDK ready!')
+        console.log('📊 SDK Info:', {
+          clientId: sdk.clientId,
+          instanceId: (sdk as any).instanceId,
+          commands: Object.keys(sdk.commands || {})
+        })
+        
+        setDiscordSdk(sdk)
+        setReady(true)
 
-        const attemptInitialization = async (): Promise<void> => {
+        // Check for stored authentication
+        const storedAuth = localStorage.getItem('discord_authenticated')
+        const storedUser = localStorage.getItem('discord_user')
+        
+        if (storedAuth === 'true' && storedUser) {
           try {
-            console.log(`⏳ Attempting Discord SDK initialization (attempt ${retryCount + 1}/${maxRetries})...`)
-            
-            // Add pre-ready checks
-            console.log('🔍 Pre-initialization SDK state:', {
-              clientId: sdk.clientId,
-              sdkExists: !!sdk,
-              hasCommands: !!(sdk as any).commands
-            })
-            
-            // Wait for SDK to be ready with explicit error handling
-            await Promise.race([
-              sdk.ready(),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('SDK ready() timeout')), 8000)
-              )
-            ])
-            
-            initializationComplete = true
-            clearTimeout(initTimeout)
-          } catch (error) {
-            retryCount++
-            console.warn(`⚠️ SDK initialization attempt ${retryCount} failed:`, error)
-            
-            if (retryCount < maxRetries) {
-              console.log(`🔄 Retrying SDK initialization in 2 seconds...`)
-              await new Promise(resolve => setTimeout(resolve, 2000))
-              return attemptInitialization()
-            } else {
-              throw new Error(`SDK initialization failed after ${maxRetries} attempts: ${error}`)
-            }
+            const userData = JSON.parse(storedUser)
+            console.log('🔄 Using stored authentication for user:', userData.username)
+            setUser(userData)
+          } catch (parseError) {
+            console.warn('⚠️ Failed to parse stored user data:', parseError)
+            localStorage.removeItem('discord_authenticated')
+            localStorage.removeItem('discord_user')
           }
+        } else {
+          console.log('🔐 No stored authentication - user will need to authenticate')
         }
 
-        try {
-          await attemptInitialization()
-          
-          console.log('✅ Discord SDK ready!')
-          console.log('📊 SDK Info:', {
-            clientId: sdk.clientId,
-            instanceId: (sdk as any).instanceId,
-            platform: (sdk as any).platform,
-            commands: Object.keys(sdk.commands || {}),
-            hasSource: !!(sdk as any).source,
-            hasSourceOrigin: !!(sdk as any).sourceOrigin
-          })
-          
-          setDiscordSdk(sdk)
-          setReady(true)
-
-          // Get initial Discord context
-          try {
-            const commands = sdk.commands
-            if (commands && commands.getInstanceConnectParams) {
-              const connectParams = await commands.getInstanceConnectParams()
-              console.log('🔗 Instance connect params:', connectParams)
-            }
-          } catch (contextError) {
-            console.warn('⚠️ Could not get instance context:', contextError)
-            // Not critical for Activity initialization
-          }
-
-          // Check for stored authentication
-          const storedAuth = localStorage.getItem('discord_authenticated')
-          const storedUser = localStorage.getItem('discord_user')
-          
-          if (storedAuth === 'true' && storedUser) {
-            try {
-              const userData = JSON.parse(storedUser)
-              console.log('🔄 Using stored authentication for user:', userData.username)
-              setUser(userData)
-            } catch (parseError) {
-              console.warn('⚠️ Failed to parse stored user data:', parseError)
-              localStorage.removeItem('discord_authenticated')
-              localStorage.removeItem('discord_user')
-            }
-          } else {
-            console.log('🔐 No stored authentication - user will need to authenticate')
-          }
-
-          setIsLoading(false)
-
-        } catch (sdkError) {
-          initializationComplete = true
-          clearTimeout(initTimeout)
-          throw sdkError
-        }
+        setIsLoading(false)
 
       } catch (err) {
         console.error('💥 Discord SDK initialization failed:', err)
