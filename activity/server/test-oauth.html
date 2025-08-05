@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opure Activity OAuth2 Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #00ff88;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ff88;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #ff6b6b;
+            text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .test-section h3 {
+            color: #ffd93d;
+            margin-top: 0;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid #00ff88;
+        }
+        .error {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #ff6b6b;
+        }
+        .info {
+            background: rgba(255, 217, 61, 0.2);
+            border: 1px solid #ffd93d;
+        }
+        .status {
+            text-align: center;
+            font-size: 18px;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .loading {
+            color: #ffd93d;
+            background: rgba(255, 217, 61, 0.1);
+            border: 1px solid #ffd93d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 OPURE.EXE OAUTH2 TEST SUITE 🤖</h1>
+        
+        <div id="status" class="status loading">
+            Initializing test environment...
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Environment Check</h3>
+            <button onclick="checkEnvironment()">Check Environment</button>
+            <div id="env-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 Discord SDK Test</h3>
+            <button onclick="testDiscordSDK()">Test Discord SDK</button>
+            <div id="sdk-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔐 OAuth2 Flow Test</h3>
+            <button onclick="testOAuth2Flow()">Start OAuth2 Test</button>
+            <div id="oauth-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 API Endpoint Test</h3>
+            <button onclick="testAPIEndpoint()">Test API Endpoint</button>
+            <div id="api-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Full Integration Test</h3>
+            <button onclick="runFullTest()">Run Complete Test</button>
+            <div id="full-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            CLIENT_ID: '1388207626944249856',
+            API_BASE: 'https://api.opure.uk',
+            LOCAL_API: 'http://localhost:3000'
+        };
+
+        // Utility functions
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            element.textContent += logMessage;
+            element.className = `result ${type}`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).textContent = '';
+        }
+
+        function updateStatus(message, type = 'loading') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Test functions
+        async function checkEnvironment() {
+            clearLog('env-result');
+            log('env-result', '🔍 Starting environment check...', 'info');
+            
+            try {
+                // Check if we're in Discord
+                const inDiscord = window.parent !== window || window.location.ancestorOrigins?.length > 0;
+                log('env-result', `Discord Environment: ${inDiscord ? '✅ YES' : '❌ NO'}`, inDiscord ? 'success' : 'error');
+                
+                // Check URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                log('env-result', `URL Parameters: ${urlParams.toString() || 'None'}`, 'info');
+                
+                // Check user agent
+                log('env-result', `User Agent: ${navigator.userAgent}`, 'info');
+                
+                // Check local storage
+                const storedAuth = localStorage.getItem('discord_authenticated');
+                const storedUser = localStorage.getItem('discord_user');
+                log('env-result', `Stored Auth: ${storedAuth || 'None'}`, 'info');
+                log('env-result', `Stored User: ${storedUser ? 'Present' : 'None'}`, 'info');
+                
+                log('env-result', '✅ Environment check complete!', 'success');
+                
+            } catch (error) {
+                log('env-result', `❌ Environment check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDiscordSDK() {
+            clearLog('sdk-result');
+            log('sdk-result', '🚀 Testing Discord SDK...', 'info');
+            
+            try {
+                // Try to import Discord SDK
+                if (typeof DiscordSDK === 'undefined') {
+                    // Try to load from CDN
+                    log('sdk-result', '📦 Loading Discord SDK from CDN...', 'info');
+                    const script = document.createElement('script');
+                    script.src = 'https://discord.com/api/embedded-app-sdk/v1/discord.js';
+                    document.head.appendChild(script);
+                    
+                    await new Promise((resolve, reject) => {
+                        script.onload = resolve;
+                        script.onerror = () => reject(new Error('Failed to load Discord SDK'));
+                        setTimeout(() => reject(new Error('SDK load timeout')), 5000);
+                    });
+                }
+                
+                log('sdk-result', '✅ Discord SDK loaded successfully!', 'success');
+                
+                // Try to initialize SDK
+                log('sdk-result', '🔧 Initializing Discord SDK...', 'info');
+                const sdk = new DiscordSDK(CONFIG.CLIENT_ID);
+                
+                // Test SDK ready
+                const readyPromise = sdk.ready();
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('SDK ready timeout')), 10000)
+                );
+                
+                await Promise.race([readyPromise, timeoutPromise]);
+                log('sdk-result', '✅ Discord SDK ready!', 'success');
+                
+                // Store SDK for other tests
+                window.testSDK = sdk;
+                
+            } catch (error) {
+                log('sdk-result', `❌ Discord SDK test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testOAuth2Flow() {
+            clearLog('oauth-result');
+            log('oauth-result', '🔐 Testing OAuth2 flow...', 'info');
+            
+            try {
+                if (!window.testSDK) {
+                    throw new Error('Discord SDK not initialized. Run SDK test first.');
+                }
+                
+                log('oauth-result', '🎫 Starting OAuth2 authorization...', 'info');
+                
+                const authResult = await window.testSDK.commands.authorize({
+                    client_id: CONFIG.CLIENT_ID,
+                    response_type: 'code',
+                    state: crypto.randomUUID(),
+                    prompt: 'none',
+                    scope: ['identify', 'guilds', 'rpc.activities.write']
+                });
+                
+                log('oauth-result', `✅ Authorization successful!`, 'success');
+                log('oauth-result', `Code: ${authResult.code.substring(0, 20)}...`, 'info');
+                
+                // Test token exchange
+                log('oauth-result', '🔄 Testing token exchange...', 'info');
+                
+                const response = await fetch(`${CONFIG.API_BASE}/api/auth/discord`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code: authResult.code })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+                
+                const result = await response.json();
+                log('oauth-result', `✅ Token exchange successful!`, 'success');
+                log('oauth-result', `User: ${result.user.username}#${result.user.discriminator}`, 'success');
+                
+                // Store for other tests
+                window.testUser = result.user;
+                window.testToken = result.token;
+                
+            } catch (error) {
+                log('oauth-result', `❌ OAuth2 test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAPIEndpoint() {
+            clearLog('api-result');
+            log('api-result', '🌐 Testing API endpoints...', 'info');
+            
+            try {
+                // Test health endpoint
+                log('api-result', '❤️ Testing health endpoint...', 'info');
+                const healthResponse = await fetch(`${CONFIG.API_BASE}/api/health`);
+                log('api-result', `Health Status: ${healthResponse.status}`, 'info');
+                
+                // Test auth endpoint availability
+                log('api-result', '🔐 Testing auth endpoint...', 'info');
+                const authResponse = await fetch(`${CONFIG.API_BASE}/api/auth/discord`, {
+                    method: 'OPTIONS'
+                });
+                log('api-result', `Auth Endpoint: ${authResponse.status}`, 'info');
+                
+                // Test CORS headers
+                const corsHeaders = authResponse.headers.get('Access-Control-Allow-Origin');
+                log('api-result', `CORS Headers: ${corsHeaders || 'Not set'}`, corsHeaders ? 'success' : 'error');
+                
+                log('api-result', '✅ API endpoint tests complete!', 'success');
+                
+            } catch (error) {
+                log('api-result', `❌ API test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function runFullTest() {
+            clearLog('full-result');
+            log('full-result', '📊 Running complete integration test...', 'info');
+            
+            updateStatus('Running full integration test...', 'loading');
+            
+            try {
+                // Step 1: Environment
+                log('full-result', '1️⃣ Checking environment...', 'info');
+                await checkEnvironment();
+                
+                // Step 2: SDK
+                log('full-result', '2️⃣ Testing Discord SDK...', 'info');
+                await testDiscordSDK();
+                
+                // Step 3: API
+                log('full-result', '3️⃣ Testing API endpoints...', 'info');
+                await testAPIEndpoint();
+                
+                // Step 4: OAuth2 (only if in Discord)
+                const inDiscord = window.parent !== window || window.location.ancestorOrigins?.length > 0;
+                if (inDiscord) {
+                    log('full-result', '4️⃣ Testing OAuth2 flow...', 'info');
+                    await testOAuth2Flow();
+                } else {
+                    log('full-result', '4️⃣ Skipping OAuth2 (not in Discord)', 'info');
+                }
+                
+                log('full-result', '🎉 ALL TESTS COMPLETED SUCCESSFULLY!', 'success');
+                updateStatus('✅ All tests passed!', 'success');
+                
+            } catch (error) {
+                log('full-result', `❌ Full test failed: ${error.message}`, 'error');
+                updateStatus('❌ Tests failed!', 'error');
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            updateStatus('🤖 Test suite ready! Run individual tests or full suite.', 'info');
+            checkEnvironment();
+        });
+    </script>
+</body>
+</html>

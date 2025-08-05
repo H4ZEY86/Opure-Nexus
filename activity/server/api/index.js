@@ -3,18 +3,59 @@ const cors = require('cors')
 
 const app = express()
 
-// CORS configuration for Discord Activities
+// Enhanced CORS configuration for Discord Activities
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || "http://localhost:3000",
-    "https://discord.com",
-    "https://ptb.discord.com", 
-    "https://canary.discord.com",
-    /\.discord\.com$/,
-  ],
+  origin: function (origin, callback) {
+    console.log('🌐 CORS origin check:', origin)
+    
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true)
+    
+    const allowedOrigins = [
+      process.env.CLIENT_URL || "http://localhost:3000",
+      "https://opure.uk", // Your client domain
+      "https://discord.com",
+      "https://ptb.discord.com", 
+      "https://canary.discord.com",
+      // Discord Activities run in iframes with these origins
+      "https://activities.discord.com",
+      "https://activities.staging.discord.co",
+      "null", // Discord Activities often show as null origin in iframe context
+    ]
+    
+    // Check if origin matches allowed patterns
+    const isAllowed = allowedOrigins.includes(origin) || 
+                     /\.discord\.com$/.test(origin) ||
+                     /\.discord\.co$/.test(origin)
+    
+    if (isAllowed) {
+      console.log('✅ CORS origin allowed:', origin)
+      callback(null, true)
+    } else {
+      console.log('❌ CORS origin blocked:', origin)
+      // For Discord Activities, we'll allow it anyway due to iframe constraints
+      callback(null, true)
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'X-CSRF-Token',
+    'X-Requested-With',
+    'Accept-Version',
+    'Content-Length',
+    'Content-MD5',
+    'Date',
+    'X-Api-Version'
+  ],
+  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 }))
 
 app.use(express.json({ limit: '10mb' }))
@@ -27,7 +68,24 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    version: '1.0.0'
+    version: '1.0.0',
+    cors_origin: req.headers.origin || 'no-origin',
+    user_agent: req.headers['user-agent']
+  })
+})
+
+// Test endpoint for OAuth2 debugging
+app.get('/api/auth/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'OAuth2 endpoint is accessible',
+    headers: req.headers,
+    timestamp: new Date().toISOString(),
+    environment: {
+      discord_client_id: process.env.DISCORD_CLIENT_ID ? 'SET' : 'NOT SET',
+      discord_client_secret: process.env.DISCORD_CLIENT_SECRET ? 'SET' : 'NOT SET',
+      discord_redirect_uri: process.env.DISCORD_REDIRECT_URI || 'https://opure.uk (default)',
+    }
   })
 })
 
@@ -44,43 +102,78 @@ app.get('/', (req, res) => {
   })
 })
 
-// Auth routes
+// Auth routes - Discord Activities OAuth2 Flow
 app.post('/api/auth/discord', async (req, res) => {
   try {
+    console.log('🔐 Discord OAuth2 request received')
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2))
+    console.log('Request body:', JSON.stringify(req.body, null, 2))
+    
     const { code } = req.body
     
     if (!code) {
+      console.error('❌ Missing authorization code')
       return res.status(400).json({
         success: false,
         error: 'Authorization code is required'
       })
     }
 
+    // Discord Activities specific configuration
+    const clientId = process.env.DISCORD_CLIENT_ID || '1388207626944249856'
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET
+    
+    // For Discord Activities, the redirect_uri should match what's configured in Discord Developer Portal
+    // This is typically the client domain, not the API endpoint
+    const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://opure.uk'
+    
+    console.log('🔄 Exchanging code for access token...')
+    console.log('Client ID:', clientId)
+    console.log('Redirect URI:', redirectUri)
+
     // Exchange code for access token
+    const tokenParams = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    })
+
+    console.log('Token exchange params:', tokenParams.toString())
+
     const tokenResponse = await fetch('https://discord.com/api/v10/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        client_id: process.env.DISCORD_CLIENT_ID,
-        client_secret: process.env.DISCORD_CLIENT_SECRET,
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: process.env.DISCORD_REDIRECT_URI,
-      }),
+      body: tokenParams,
     })
 
+    console.log('Token response status:', tokenResponse.status)
+
     if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error('❌ Token exchange failed:', errorText)
       return res.status(400).json({
         success: false,
-        error: 'Invalid authorization code'
+        error: 'Invalid authorization code',
+        details: errorText,
+        debug: {
+          clientId,
+          redirectUri,
+          codeLength: code.length
+        }
       })
     }
 
-    const { access_token } = await tokenResponse.json()
+    const tokenData = await tokenResponse.json()
+    console.log('✅ Token exchange successful')
+    
+    const { access_token } = tokenData
 
     // Get user information
+    console.log('👤 Fetching user information...')
     const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
       headers: {
         Authorization: `Bearer ${access_token}`,
@@ -88,37 +181,49 @@ app.post('/api/auth/discord', async (req, res) => {
     })
 
     if (!userResponse.ok) {
-      return res.status(400).json({
+      const errorText = await userResponse.text()
+      console.error('❌ User fetch failed:', errorText)
+      return res.status(500).json({
         success: false,
-        error: 'Failed to get user info'
+        error: 'Failed to fetch user information',
+        details: errorText
       })
     }
 
     const user = await userResponse.json()
+    console.log(`✅ User authenticated: ${user.username}#${user.discriminator}`)
 
-    // Create simple token
+    // Create a simple JWT-like token (in production, use proper JWT)
     const token = Buffer.from(JSON.stringify({
       userId: user.id,
       username: user.username,
-      timestamp: Date.now()
+      discriminator: user.discriminator,
+      avatar: user.avatar,
+      timestamp: Date.now(),
     })).toString('base64')
 
-    res.json({
+    const response = {
       success: true,
       user: {
         id: user.id,
         username: user.username,
         discriminator: user.discriminator,
         avatar: user.avatar,
-        globalName: user.global_name,
+        global_name: user.global_name,
       },
+      access_token,
       token,
-    })
+    }
+
+    console.log('🎉 Authentication successful, sending response')
+    res.json(response)
+
   } catch (error) {
-    console.error('Discord authentication failed:', error)
+    console.error('💥 Discord authentication error:', error)
     res.status(500).json({
       success: false,
-      error: 'Authentication failed'
+      error: 'Authentication failed',
+      message: error.message,
     })
   }
 })

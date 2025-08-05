@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { DiscordSDK, Types } from '@discord/embedded-app-sdk'
+import { buildApiUrl, API_CONFIG } from '../config/api'
 
 interface DiscordContextType {
   discordSdk: DiscordSDK | null
@@ -42,61 +43,94 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
   const [ready, setReady] = useState(false)
 
   const authenticate = async () => {
-    if (!discordSdk) return
+    if (!discordSdk) {
+      console.error('Discord SDK not initialized')
+      return
+    }
 
     try {
       setIsLoading(true)
       setError(null)
+      console.log('Starting Discord Activity authentication...')
 
-      // Authenticate with Discord
-      const { code } = await discordSdk.commands.authorize({
-        client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
+      // For Discord Activities, use the proper OAuth2 flow
+      const authResult = await discordSdk.commands.authorize({
+        client_id: '1388207626944249856', // Your Discord Application ID
         response_type: 'code',
-        state: '',
+        state: crypto.randomUUID(), // Generate random state for security
         prompt: 'none',
         scope: [
-          'identify',
-          'guilds',
-          'applications.commands',
+          'identify', // Get user info
+          'guilds', // Access guild info
+          'rpc.activities.write', // Write activity data
         ],
       })
 
-      // Exchange code for access token
-      const response = await fetch('/api/auth/discord', {
+      console.log('Authorization successful:', authResult)
+
+      // Exchange the authorization code with our server
+      console.log('🔄 Exchanging authorization code with server...')
+      console.log('Auth URL:', buildApiUrl(API_CONFIG.ENDPOINTS.AUTH))
+      console.log('Auth code length:', authResult.code.length)
+      
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.AUTH), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code: authResult.code }),
       })
+
+      console.log('Server response status:', response.status)
+      console.log('Server response headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
-        throw new Error('Failed to authenticate')
+        const errorText = await response.text()
+        console.error('❌ Server response error:', errorText)
+        
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { message: errorText }
+        }
+        
+        throw new Error(errorData.message || errorData.error || `Server error: ${response.status}`)
       }
 
-      const { access_token } = await response.json()
-
-      // Get user info
-      const userResponse = await fetch('https://discord.com/api/users/@me', {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      })
-
-      if (!userResponse.ok) {
-        throw new Error('Failed to get user info')
+      const responseText = await response.text()
+      console.log('Raw server response:', responseText)
+      
+      let responseData
+      try {
+        responseData = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('❌ Failed to parse server response:', parseError)
+        throw new Error('Invalid server response format')
       }
+      
+      const { user, token } = responseData
+      console.log('Server authentication successful:', { user })
+      
+      // Store the JWT token for API requests
+      localStorage.setItem('auth_token', token)
 
-      const userData = await userResponse.json()
-      setUser(userData)
+      console.log('Authentication successful:', { user })
+      setUser(user)
 
-      // Get channel info if available
+      // Get current channel info
       try {
         const channelData = await discordSdk.commands.getChannel()
+        console.log('Channel data:', channelData)
         setChannel(channelData)
       } catch (err) {
         console.warn('Could not get channel info:', err)
       }
+
+      // Store authentication state
+      localStorage.setItem('discord_authenticated', 'true')
+      localStorage.setItem('discord_user', JSON.stringify(user))
 
     } catch (err) {
       console.error('Authentication error:', err)
@@ -116,21 +150,9 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         const isInDiscord = window.parent !== window || window.location.ancestorOrigins?.length > 0
         
         if (!isInDiscord) {
-          console.log('Not running in Discord - using mock user')
-          setUser({
-            id: 'browser-user-id',
-            username: 'Browser User',
-            discriminator: '0001',
-            avatar: null,
-            bot: false,
-            system: false,
-            mfa_enabled: false,
-            verified: true,
-            email: null,
-            flags: 0,
-            premium_type: 0,
-            public_flags: 0,
-          })
+          console.log('Not running in Discord - OAuth2 authentication required')
+          // Don't set mock user - force proper authentication flow
+          setError('This application must be run within Discord as an Activity')
           setIsLoading(false)
           return
         }
@@ -152,47 +174,17 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         setDiscordSdk(sdk)
         setReady(true)
 
-        // Simple authentication
-        try {
-          const auth = await sdk.commands.authenticate({
-            access_token: null,
-          })
-          
-          if (auth?.user) {
-            setUser(auth.user)
-          } else {
-            // Fallback user
-            setUser({
-              id: 'discord-user-id',
-              username: 'Discord User',
-              discriminator: '0001',
-              avatar: null,
-              bot: false,
-              system: false,
-              mfa_enabled: false,
-              verified: true,
-              email: null,
-              flags: 0,
-              premium_type: 0,
-              public_flags: 0,
-            })
-          }
-        } catch (authError) {
-          console.warn('Authentication failed, using fallback user:', authError)
-          setUser({
-            id: 'discord-user-id',
-            username: 'Discord User',
-            discriminator: '0001',
-            avatar: null,
-            bot: false,
-            system: false,
-            mfa_enabled: false,
-            verified: true,
-            email: null,
-            flags: 0,
-            premium_type: 0,
-            public_flags: 0,
-          })
+        // Check for stored authentication first
+        const storedAuth = localStorage.getItem('discord_authenticated')
+        const storedUser = localStorage.getItem('discord_user')
+        
+        if (storedAuth === 'true' && storedUser) {
+          console.log('Using stored authentication')
+          setUser(JSON.parse(storedUser))
+        } else {
+          console.log('No stored authentication, will need to authenticate manually')
+          // Don't auto-authenticate, wait for user action
+          // This ensures proper OAuth2 flow
         }
 
         setIsLoading(false)
