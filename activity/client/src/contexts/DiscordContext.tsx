@@ -61,86 +61,102 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
       console.log('✅ SDK ready, proceeding with authentication...')
 
-      // Use Discord Activity authorize method (this triggers the OAuth2 popup)
-      console.log('🎮 Calling Discord authorize (OAuth2 popup)...')
+      // Use Discord Activity authenticate method (the correct one for Activities)
+      console.log('🎮 Calling Discord authenticate...')
       console.log('🔍 Available SDK commands:', Object.keys(discordSdk.commands || {}))
       
-      // Discord Activities use authorize() to trigger OAuth2 popup, not authenticate()
+      // Try the standard Discord Activity authentication with different approaches
       let authResult = null
-      const scopeAttempts = [
-        ['identify', 'rpc.activities.write'],
-        ['identify']
-      ]
       
-      for (const scopes of scopeAttempts) {
+      // Method 1: Try authenticate with access_token scope
+      try {
+        console.log('🔄 Method 1: authenticate() with access_token')
+        authResult = await discordSdk.commands.authenticate({
+          scope: ['identify', 'rpc.activities.write'],
+          access_token: true
+        })
+        console.log('✅ Method 1 successful:', authResult)
+      } catch (error1) {
+        console.warn('⚠️ Method 1 failed:', error1)
+        
+        // Method 2: Try authenticate without access_token
         try {
-          console.log(`🔄 Attempting authorization with scopes: ${scopes.join(', ')}`)
-          
-          // Use authorize() which triggers the OAuth2 popup window
-          authResult = await discordSdk.commands.authorize({
-            client_id: discordSdk.clientId,
-            response_type: 'code',
-            state: '',
-            prompt: 'none',
-            scope: scopes.join(' ')
+          console.log('🔄 Method 2: authenticate() basic')
+          authResult = await discordSdk.commands.authenticate({
+            scope: ['identify', 'rpc.activities.write']
           })
+          console.log('✅ Method 2 successful:', authResult)
+        } catch (error2) {
+          console.warn('⚠️ Method 2 failed:', error2)
           
-          console.log('✅ Authorization successful with scopes:', scopes)
-          console.log('🔍 Auth result:', { 
-            hasCode: !!authResult.code,
-            state: authResult.state 
-          })
-          break
-          
-        } catch (scopeError) {
-          console.warn(`⚠️ Authorization failed with scopes ${scopes.join(', ')}:`, scopeError)
-          
-          if (scopes === scopeAttempts[scopeAttempts.length - 1]) {
-            throw scopeError // Re-throw the last error
+          // Method 3: Try with just identify scope
+          try {
+            console.log('🔄 Method 3: authenticate() with identify only')
+            authResult = await discordSdk.commands.authenticate({
+              scope: ['identify']
+            })
+            console.log('✅ Method 3 successful:', authResult)
+          } catch (error3) {
+            console.warn('⚠️ Method 3 failed:', error3)
+            
+            // Method 4: Try authorize as fallback
+            try {
+              console.log('🔄 Method 4: authorize() fallback')
+              authResult = await discordSdk.commands.authorize({
+                client_id: discordSdk.clientId,
+                response_type: 'code',
+                state: '',
+                scope: 'identify rpc.activities.write'
+              })
+              console.log('✅ Method 4 successful:', authResult)
+              
+              if (authResult.code) {
+                // Exchange code for token
+                const tokenResponse = await fetch(buildApiUrl('/api/auth/discord'), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code: authResult.code })
+                })
+                
+                if (tokenResponse.ok) {
+                  const tokenData = await tokenResponse.json()
+                  if (tokenData.success) {
+                    authResult = tokenData
+                  }
+                }
+              }
+            } catch (error4) {
+              console.error('💥 All authentication methods failed:', {
+                error1: error1.message,
+                error2: error2.message, 
+                error3: error3.message,
+                error4: error4.message
+              })
+              throw new Error('All authentication methods failed')
+            }
           }
         }
       }
       
-      if (!authResult || !authResult.code) {
-        throw new Error('Authorization failed - no code received')
+      if (!authResult) {
+        throw new Error('Authentication failed - no result received')
       }
 
-      // Exchange code for access token via our API
-      console.log('🔄 Exchanging authorization code for access token...')
-      const tokenResponse = await fetch(buildApiUrl('/api/auth/discord'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          code: authResult.code 
-        })
+      console.log('✅ Discord authentication successful:', {
+        hasUser: !!authResult.user,
+        hasAccessToken: !!authResult.access_token,
+        method: authResult.code ? 'OAuth2 exchange' : 'Direct authenticate'
       })
 
-      if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorText}`)
-      }
-
-      const tokenData = await tokenResponse.json()
-      if (!tokenData.success) {
-        throw new Error(`Token exchange error: ${tokenData.error}`)
-      }
-
-      console.log('✅ Discord OAuth2 authentication successful:', {
-        userId: tokenData.user?.id,
-        username: tokenData.user?.username,
-        hasAccessToken: !!tokenData.access_token
-      })
-
-      // Extract user and token from OAuth2 exchange
-      const { user: discordUser, access_token } = tokenData
+      // Extract user and token from auth result
+      const discordUser = authResult.user
+      const access_token = authResult.access_token
       
       if (!discordUser) {
-        throw new Error('No user data received from OAuth2 exchange')
+        throw new Error('No user data received from Discord authentication')
       }
 
-      // Use the user data from OAuth2 token exchange
+      // Use the user data from authentication
       const userData = {
         id: discordUser.id,
         username: discordUser.username,
