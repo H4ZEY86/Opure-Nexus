@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Shield, ArrowRight, Zap } from 'lucide-react'
 import { useDiscord } from '../../hooks/useDiscord'
 import { DiscordDebugger } from '../DiscordDebugger'
+import { DiscordAuthDebugger } from '../DiscordAuthDebugger'
 
 export default function AuthenticationPrompt() {
   const { authenticate, isLoading, error } = useDiscord()
@@ -147,8 +148,9 @@ export default function AuthenticationPrompt() {
         />
       </motion.div>
 
-      {/* Debug Component */}
+      {/* Debug Components */}
       <DiscordDebugger />
+      <DiscordAuthDebugger />
     </div>
   )
 }
