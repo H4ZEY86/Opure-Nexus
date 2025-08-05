@@ -1,12 +1,16 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Home, Music, Settings, Users } from 'lucide-react'
-import { useDiscord } from '@/hooks/useDiscord'
+import { Home, Music, Settings, Users, Trophy, Coins, Gamepad2, MessageCircle } from 'lucide-react'
+import { useDiscord } from '../../hooks/useDiscord'
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/music', icon: Music, label: 'Music' },
+  { to: '/games', icon: Gamepad2, label: 'Games' },
+  { to: '/achievements', icon: Trophy, label: 'Achievements' },
+  { to: '/economy', icon: Coins, label: 'Economy' },
+  { to: '/ai-chat', icon: MessageCircle, label: 'AI Chat' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 

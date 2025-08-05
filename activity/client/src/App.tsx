@@ -5,10 +5,15 @@ import Home from './pages/Home'
 import Music from './pages/Music'
 import Settings from './pages/Settings'
 import GameHub from './pages/GameHub'
+import Achievements from './pages/Achievements'
+import Economy from './pages/Economy'
+import AIChat from './pages/AIChat'
 import Admin from './pages/Admin'
+import DiscordTest from './pages/DiscordTest'
 import NotFound from './pages/NotFound'
 import { useDiscord } from './hooks/useDiscord'
 import LoadingScreen from './components/common/LoadingScreen'
+import AuthenticationPrompt from './components/auth/AuthenticationPrompt'
 
 const pageVariants = {
   initial: { opacity: 0, scale: 0.95, filter: 'blur(10px)' },
@@ -28,6 +33,11 @@ export default function App() {
 
   if (isLoading) {
     return <LoadingScreen />
+  }
+
+  // Show authentication prompt if user is not authenticated
+  if (!user) {
+    return <AuthenticationPrompt />
   }
 
   return (
@@ -114,8 +124,12 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/games" element={<GameHub />} />
                 <Route path="/music" element={<Music />} />
+                <Route path="/achievements" element={<Achievements />} />
+                <Route path="/economy" element={<Economy />} />
+                <Route path="/ai-chat" element={<AIChat />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/discord-test" element={<DiscordTest />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </motion.div>
@@ -129,6 +143,9 @@ export default function App() {
               { path: '/', icon: '🏠', label: 'Home' },
               { path: '/games', icon: '🎮', label: 'Games' },
               { path: '/music', icon: '🎵', label: 'Music' },
+              { path: '/achievements', icon: '🏆', label: 'Achievements' },
+              { path: '/economy', icon: '💰', label: 'Economy' },
+              { path: '/ai-chat', icon: '💬', label: 'AI Chat' },
               { path: '/settings', icon: '⚙️', label: 'Settings' },
               { path: '/admin', icon: '🛡️', label: 'Admin', adminOnly: true }
             ].filter(item => !item.adminOnly || (user && user.admin)).map(({ path, icon, label }) => (
