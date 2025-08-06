@@ -210,6 +210,36 @@ export default function DebugOverlay() {
                   })
                   setTestResults(prev => [...prev.slice(-5), `Direct authorize SUCCESS: ${JSON.stringify(authResult)}`])
                   
+                  // Try token exchange with the code
+                  if (authResult.code) {
+                    try {
+                      setTestResults(prev => [...prev.slice(-5), 'Testing token exchange...'])
+                      const tokenResponse = await fetch('https://api.opure.uk/api/auth/discord', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: authResult.code })
+                      })
+                      
+                      const responseText = await tokenResponse.text()
+                      setTestResults(prev => [...prev.slice(-5), `Token response (${tokenResponse.status}): ${responseText.substring(0, 200)}`])
+                      
+                      if (tokenResponse.ok) {
+                        const tokenData = JSON.parse(responseText)
+                        setTestResults(prev => [...prev.slice(-5), `Token data: ${JSON.stringify(tokenData).substring(0, 200)}`])
+                        
+                        // Try participants with token
+                        try {
+                          const participants = await discordSdk.commands.getInstanceConnectedParticipants()
+                          setTestResults(prev => [...prev.slice(-5), `Post-token participants: ${JSON.stringify(participants)}`])
+                        } catch (e) {
+                          setTestResults(prev => [...prev.slice(-5), `Post-token participants failed: ${e.message}`])
+                        }
+                      }
+                    } catch (e) {
+                      setTestResults(prev => [...prev.slice(-5), `Token exchange failed: ${e.message}`])
+                    }
+                  }
+                  
                   // Try participants after auth
                   try {
                     const participants = await discordSdk.commands.getInstanceConnectedParticipants()
