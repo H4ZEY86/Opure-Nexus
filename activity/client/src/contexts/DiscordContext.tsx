@@ -68,63 +68,25 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       // Try the standard Discord Activity authentication with different approaches
       let authResult = null
       
-      // Method 0: Get user from Activity participants (Discord Activity API)
+      // Method 0: Try authenticate with access_token scope (must authenticate first)
       try {
-        console.log('🔄 Method 0: Getting user from Activity participants')
-        const participantsData = await discordSdk.commands.getInstanceConnectedParticipants()
-        console.log('🔍 Raw participants response:', JSON.stringify(participantsData, null, 2))
-        console.log('🔍 Participants array length:', participantsData?.participants?.length || 0)
-        console.log('🔍 Participants structure check:', {
-          hasParticipants: !!participantsData?.participants,
-          isArray: Array.isArray(participantsData?.participants),
-          firstParticipant: participantsData?.participants?.[0] || null
-        })
-        
-        if (participantsData && participantsData.participants && participantsData.participants.length > 0) {
-          // Find the current user (usually the first one or marked somehow)
-          const currentUser = participantsData.participants[0] // Or find by some criteria
-          console.log('✅ Method 0 successful - Found user in participants:', JSON.stringify(currentUser, null, 2))
-          
-          // Validate the user object has required Discord user fields
-          if (currentUser && currentUser.id && currentUser.username) {
-            console.log('✅ Method 0 - Valid user object found with ID and username')
-            authResult = { user: currentUser, access_token: null }
-          } else {
-            console.warn('⚠️ Method 0 - Participant found but missing user fields:', currentUser)
-            throw new Error('Participant missing required user fields (id, username)')
-          }
-        } else {
-          console.warn('⚠️ Method 0 - No participants in response:', {
-            hasData: !!participantsData,
-            hasParticipantsArray: !!participantsData?.participants,
-            participantCount: participantsData?.participants?.length || 0,
-            rawResponse: participantsData
-          })
-          throw new Error('No participants found in getInstanceConnectedParticipants response')
-        }
-      } catch (error0) {
-        console.warn('⚠️ Method 0 failed:', error0.message)
-        console.warn('🔍 Method 0 error details:', error0)
-        
-        // Method 1: Try authenticate with access_token scope
-        try {
-        console.log('🔄 Method 1: authenticate() with access_token')
+        console.log('🔄 Method 0: authenticate() with access_token scope')
         authResult = await discordSdk.commands.authenticate({
           scope: ['identify', 'rpc.activities.write'],
           access_token: true
         })
-        console.log('✅ Method 1 successful - Auth Result Keys:', Object.keys(authResult || {}))
-        console.log('✅ Method 1 successful - Full Result:', JSON.stringify(authResult, null, 2))
-      } catch (error1) {
-        console.warn('⚠️ Method 1 failed:', error1)
+        console.log('✅ Method 0 successful - Auth Result Keys:', Object.keys(authResult || {}))
+        console.log('✅ Method 0 successful - Full Result:', JSON.stringify(authResult, null, 2))
+      } catch (error0) {
+        console.warn('⚠️ Method 0 failed:', error0.message)
         
-        // Method 2: Try authenticate without access_token
+        // Method 1: Try authenticate without access_token
         try {
-          console.log('🔄 Method 2: authenticate() basic')
+          console.log('🔄 Method 1: authenticate() basic')
           authResult = await discordSdk.commands.authenticate({
             scope: ['identify', 'rpc.activities.write']
           })
-          console.log('✅ Method 2 successful:', authResult)
+          console.log('✅ Method 1 successful:', authResult)
         } catch (error2) {
           console.warn('⚠️ Method 2 failed:', error2)
           
@@ -236,23 +198,48 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           keys: Object.keys(authResult || {})
         })
         
-        // Method 1: Try getUser() if we have an auth result
-        if (authResult.code || authResult.access_token) {
+        // Method 1: Try getInstanceConnectedParticipants() now that we're authenticated
+        try {
+          console.log('🔄 Method 1: Getting user from participants (after auth)...')
+          const participantsData = await discordSdk.commands.getInstanceConnectedParticipants()
+          console.log('✅ Participants data (post-auth):', JSON.stringify(participantsData, null, 2))
+          
+          if (participantsData && participantsData.participants && participantsData.participants.length > 0) {
+            // Find the current user (usually the first one)
+            const currentUser = participantsData.participants[0]
+            console.log('✅ Method 1 success - Found user in participants:', JSON.stringify(currentUser, null, 2))
+            
+            // Validate the user object has required Discord user fields
+            if (currentUser && currentUser.id && currentUser.username) {
+              console.log('✅ Method 1 - Valid user object found with ID and username')
+              discordUser = currentUser
+            } else {
+              console.warn('⚠️ Method 1 - Participant found but missing user fields:', currentUser)
+            }
+          } else {
+            console.warn('⚠️ Method 1 - No participants found even after authentication')
+          }
+        } catch (participantsError) {
+          console.warn('⚠️ Method 1 failed - participants error (post-auth):', participantsError)
+        }
+        
+        // Method 2: Try getUser() if we have an auth result (we know this will fail but for completeness)
+        if (!discordUser && (authResult.code || authResult.access_token)) {
           try {
-            console.log('🔄 Method 1: Getting user via getUser()...')
+            console.log('🔄 Method 2: Getting user via getUser()...')
             discordUser = await discordSdk.commands.getUser()
-            console.log('✅ Method 1 success - Got user data via getUser():', discordUser)
+            console.log('✅ Method 2 success - Got user data via getUser():', discordUser)
           } catch (getUserError) {
-            console.warn('⚠️ Method 1 failed - getUser() error:', getUserError)
+            console.warn('⚠️ Method 2 failed - getUser() error:', getUserError)
           }
         }
         
-        // Method 2: Try getting instance participants (sometimes contains user)
+        // Method 3: Try getting instance participants again (duplicate method - can remove later)
         if (!discordUser) {
           try {
-            console.log('🔄 Method 2: Getting participants...')
+            console.log('🔄 Method 3: Getting participants (duplicate check)...')
             const instanceData = await discordSdk.commands.getInstanceConnectedParticipants()
-            console.log('✅ Instance participants:', instanceData)
+            console.log('✅ Instance participants (duplicate):', instanceData)
             
             // Sometimes the current user is in the participants
             if (instanceData.participants && instanceData.participants.length > 0) {
