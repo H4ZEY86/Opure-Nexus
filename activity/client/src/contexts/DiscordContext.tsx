@@ -82,7 +82,7 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       } catch (error0) {
         console.warn('⚠️ Method 0 failed:', error0.message)
         
-        // Method 1: Try authenticate without access_token
+        // Method 1: Try authenticate without access_token parameter
         try {
           console.log('🔄 Method 1: authenticate() basic')
           authResult = await discordSdk.commands.authenticate({

@@ -203,8 +203,7 @@ export default function DebugOverlay() {
                 try {
                   console.log('🧪 DEBUG TEST: Direct authenticate() call')
                   const authResult = await discordSdk.commands.authenticate({
-                    scope: ['identify', 'rpc.activities.write'],
-                    access_token: true
+                    scope: ['identify', 'rpc.activities.write']
                   })
                   setTestResults(prev => [...prev.slice(-5), `Direct auth SUCCESS: ${JSON.stringify(authResult)}`])
                   
