@@ -1,38 +1,25 @@
 {
   "version": 2,
-  "buildCommand": "cd activity/client && npm install && npm run build",
-  "outputDirectory": "activity/client/dist",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "activity/client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
-  "headers": [
+  "routes": [
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "ALLOWALL"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.discord.com https://*.discordapp.com https://opure.uk https://www.opure.uk https://api.opure.uk wss://api.opure.uk; frame-ancestors 'self' https://*.discord.com https://*.discordapp.com;"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods", 
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, X-Requested-With"
-        }
-      ]
+      "src": "/(.*)",
+      "headers": {
+        "X-Frame-Options": "ALLOWALL",
+        "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.discord.com https://*.discordapp.com https://opure.uk https://www.opure.uk https://api.opure.uk wss://api.opure.uk; frame-ancestors 'self' https://*.discord.com https://*.discordapp.com;",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
+      },
+      "dest": "/activity/client/dist/index.html"
     }
   ]
 }
