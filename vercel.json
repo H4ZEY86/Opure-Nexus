@@ -1,15 +1,41 @@
 {
   "version": 2,
-  "builds": [
+  "outputDirectory": "activity/client/dist",
+  "framework": "vite",
+  "installCommand": "cd activity/client && npm install",
+  "buildCommand": "cd activity/client && npm run build",
+  "devCommand": "cd activity/client && npm run dev",
+  "rewrites": [
     {
-      "src": "index.js",
-      "use": "@vercel/node"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
-  "routes": [
+  "headers": [
     {
-      "src": "/(.*)",
-      "dest": "index.js"
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOWALL"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.discord.com https://*.discordapp.com https://opure.uk https://www.opure.uk https://api.opure.uk wss://api.opure.uk; frame-ancestors 'self' https://*.discord.com https://*.discordapp.com;"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods", 
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization, X-Requested-With"
+        }
+      ]
     }
   ]
 }
