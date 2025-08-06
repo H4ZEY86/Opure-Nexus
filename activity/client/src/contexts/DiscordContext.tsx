@@ -79,6 +79,39 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         })
         console.log('✅ Method 0 successful - Auth Result Keys:', Object.keys(authResult || {}))
         console.log('✅ Method 0 successful - Full Result:', JSON.stringify(authResult, null, 2))
+        
+        // If we got an authorization code, exchange it for a token
+        if (authResult.code) {
+          console.log('🔄 Method 0: Exchanging authorization code for access token...')
+          try {
+            const tokenResponse = await fetch(buildApiUrl('/api/auth/discord'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: authResult.code })
+            })
+            
+            console.log('🔍 Method 0: Token response status:', tokenResponse.status)
+            const responseText = await tokenResponse.text()
+            console.log('🔍 Method 0: Token response body:', responseText)
+            
+            if (tokenResponse.ok) {
+              const tokenData = JSON.parse(responseText)
+              if (tokenData.success) {
+                console.log('✅ Method 0: Token exchange successful:', tokenData)
+                authResult = tokenData // Replace with token data containing user info
+              } else {
+                console.error('❌ Method 0: Token exchange failed:', tokenData.error)
+                console.log('🔄 Method 0: Continuing with authorization code only')
+              }
+            } else {
+              console.warn('⚠️ Method 0: Token exchange HTTP error:', tokenResponse.status, responseText)
+              console.log('🔄 Method 0: Continuing with authorization code only')
+            }
+          } catch (exchangeError) {
+            console.warn('⚠️ Method 0: Token exchange failed:', exchangeError)
+            console.log('🔄 Method 0: Continuing with authorization code only')
+          }
+        }
       } catch (error0) {
         console.warn('⚠️ Method 0 failed:', error0.message)
         
