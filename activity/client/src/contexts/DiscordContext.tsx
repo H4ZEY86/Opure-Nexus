@@ -80,7 +80,7 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         console.log('✅ Method 0 successful - Auth Result Keys:', Object.keys(authResult || {}))
         console.log('✅ Method 0 successful - Full Result:', JSON.stringify(authResult, null, 2))
         
-        // If we got an authorization code, exchange it for a token
+        // If we got an authorization code, try to exchange it for a token
         if (authResult.code) {
           console.log('🔄 Method 0: Exchanging authorization code for access token...')
           try {
@@ -110,6 +110,42 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           } catch (exchangeError) {
             console.warn('⚠️ Method 0: Token exchange failed:', exchangeError)
             console.log('🔄 Method 0: Continuing with authorization code only')
+            
+            // FALLBACK: Try to get user from Discord Activity context without token exchange
+            console.log('🔄 Method 0 FALLBACK: Trying to extract user from Discord Activity context...')
+            try {
+              // Check if the activity has user context available
+              const activityInfo = await discordSdk.commands.getChannel()
+              console.log('🔍 Method 0 FALLBACK: Activity channel info:', activityInfo)
+              
+              // Try to get the user who launched this activity from URL params
+              const urlParams = new URLSearchParams(window.location.search)
+              const instanceId = urlParams.get('instance_id')
+              const guildId = urlParams.get('guild_id')
+              const channelId = urlParams.get('channel_id')
+              
+              console.log('🔍 Method 0 FALLBACK: URL parameters:', { instanceId, guildId, channelId })
+              
+              if (instanceId && guildId) {
+                // Create a minimal user object from available context
+                // This is a workaround until token exchange works
+                console.log('✅ Method 0 FALLBACK: Creating user context from Discord Activity parameters')
+                authResult = {
+                  user: {
+                    id: instanceId.split('-')[0] || 'discord_activity_user',
+                    username: 'Discord Activity User',
+                    discriminator: '0000',
+                    avatar: null,
+                    global_name: 'Discord Activity User'
+                  },
+                  access_token: null,
+                  code: authResult.code,
+                  fallback: true // Mark as fallback user
+                }
+              }
+            } catch (fallbackError) {
+              console.warn('⚠️ Method 0 FALLBACK: Also failed:', fallbackError)
+            }
           }
         }
       } catch (error0) {

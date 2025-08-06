@@ -215,24 +215,38 @@ export default function DebugOverlay() {
                     try {
                       setTestResults(prev => [...prev.slice(-5), 'Testing token exchange...'])
                       
+                      // First, test if API server is reachable at all
+                      try {
+                        setTestResults(prev => [...prev.slice(-5), 'Testing API server health...'])
+                        const healthResponse = await fetch('https://api.opure.uk/health', {
+                          method: 'GET',
+                          mode: 'cors'
+                        })
+                        const healthText = await healthResponse.text()
+                        setTestResults(prev => [...prev.slice(-5), `Health check (${healthResponse.status}): ${healthText.substring(0, 100)}`])
+                      } catch (healthError) {
+                        setTestResults(prev => [...prev.slice(-5), `Health check FAILED: ${healthError.message}`])
+                      }
+                      
                       // Try multiple endpoints and methods
                       const endpoints = [
                         'https://api.opure.uk/api/auth/discord',
-                        'https://api.opure.uk/api/auth/activity-sync',
+                        'https://api.opure.uk/api/auth/activity-sync', 
                         'https://api.opure.uk/auth/discord'
                       ]
                       
                       for (const endpoint of endpoints) {
                         try {
                           setTestResults(prev => [...prev.slice(-5), `Trying: ${endpoint}`])
+                          
+                          // Try with minimal headers first
                           const tokenResponse = await fetch(endpoint, {
                             method: 'POST',
                             headers: { 
-                              'Content-Type': 'application/json',
-                              'Accept': 'application/json',
-                              'Origin': window.location.origin
+                              'Content-Type': 'application/json'
                             },
                             mode: 'cors',
+                            credentials: 'omit',
                             body: JSON.stringify({ code: authResult.code })
                           })
                           
