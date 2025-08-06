@@ -1,12 +1,10 @@
 {
   "version": 2,
+  "outputDirectory": "activity/client/dist",
   "builds": [
     {
-      "src": "activity/client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "src": "package.json",
+      "use": "@vercel/static-build"
     }
   ],
   "routes": [
@@ -19,7 +17,7 @@
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
       },
-      "dest": "/activity/client/dist/index.html"
+      "dest": "/index.html"
     }
   ]
 }
