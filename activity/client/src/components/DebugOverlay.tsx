@@ -214,27 +214,41 @@ export default function DebugOverlay() {
                   if (authResult.code) {
                     try {
                       setTestResults(prev => [...prev.slice(-5), 'Testing token exchange...'])
-                      const tokenResponse = await fetch('https://api.opure.uk/api/auth/discord', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code: authResult.code })
-                      })
                       
-                      const responseText = await tokenResponse.text()
-                      setTestResults(prev => [...prev.slice(-5), `Token response (${tokenResponse.status}): ${responseText.substring(0, 200)}`])
+                      // Try multiple endpoints and methods
+                      const endpoints = [
+                        'https://api.opure.uk/api/auth/discord',
+                        'https://api.opure.uk/api/auth/activity-sync',
+                        'https://api.opure.uk/auth/discord'
+                      ]
                       
-                      if (tokenResponse.ok) {
-                        const tokenData = JSON.parse(responseText)
-                        setTestResults(prev => [...prev.slice(-5), `Token data: ${JSON.stringify(tokenData).substring(0, 200)}`])
-                        
-                        // Try participants with token
+                      for (const endpoint of endpoints) {
                         try {
-                          const participants = await discordSdk.commands.getInstanceConnectedParticipants()
-                          setTestResults(prev => [...prev.slice(-5), `Post-token participants: ${JSON.stringify(participants)}`])
-                        } catch (e) {
-                          setTestResults(prev => [...prev.slice(-5), `Post-token participants failed: ${e.message}`])
+                          setTestResults(prev => [...prev.slice(-5), `Trying: ${endpoint}`])
+                          const tokenResponse = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json',
+                              'Origin': window.location.origin
+                            },
+                            mode: 'cors',
+                            body: JSON.stringify({ code: authResult.code })
+                          })
+                          
+                          const responseText = await tokenResponse.text()
+                          setTestResults(prev => [...prev.slice(-5), `${endpoint} (${tokenResponse.status}): ${responseText.substring(0, 200)}`])
+                          
+                          if (tokenResponse.ok) {
+                            const tokenData = JSON.parse(responseText)
+                            setTestResults(prev => [...prev.slice(-5), `SUCCESS! Token data: ${JSON.stringify(tokenData).substring(0, 200)}`])
+                            break // Success, stop trying other endpoints
+                          }
+                        } catch (fetchError) {
+                          setTestResults(prev => [...prev.slice(-5), `${endpoint} failed: ${fetchError.message}`])
                         }
                       }
+                      
                     } catch (e) {
                       setTestResults(prev => [...prev.slice(-5), `Token exchange failed: ${e.message}`])
                     }
