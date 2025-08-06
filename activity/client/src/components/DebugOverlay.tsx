@@ -1,10 +1,50 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useDiscord } from '../hooks/useDiscord'
 
 export default function DebugOverlay() {
   const [isVisible, setIsVisible] = useState(false)
+  const [authLogs, setAuthLogs] = useState<string[]>([])
   const { user, discordSdk, ready, isLoading, error } = useDiscord()
+  
+  // Capture console logs for debugging
+  React.useEffect(() => {
+    const originalConsoleLog = console.log
+    const originalConsoleWarn = console.warn
+    const originalConsoleError = console.error
+    
+    const logCapture = (level: string, ...args: any[]) => {
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ')
+      
+      if (message.includes('🔄') || message.includes('✅') || message.includes('⚠️') || 
+          message.includes('Discord') || message.includes('Auth') || message.includes('OAuth')) {
+        setAuthLogs(prev => [...prev.slice(-10), `[${level}] ${message}`])
+      }
+    }
+    
+    console.log = (...args) => {
+      logCapture('LOG', ...args)
+      originalConsoleLog(...args)
+    }
+    
+    console.warn = (...args) => {
+      logCapture('WARN', ...args)  
+      originalConsoleWarn(...args)
+    }
+    
+    console.error = (...args) => {
+      logCapture('ERROR', ...args)
+      originalConsoleError(...args)
+    }
+    
+    return () => {
+      console.log = originalConsoleLog
+      console.warn = originalConsoleWarn
+      console.error = originalConsoleError
+    }
+  }, [])
 
   return (
     <>
@@ -54,15 +94,52 @@ export default function DebugOverlay() {
               <div>Frame: {window.self !== window.top ? '✅' : '❌'}</div>
               <div>Referrer: {document.referrer.includes('discord') ? '✅' : '❌'}</div>
               <div>URL Params: {window.location.search ? '✅' : '❌'}</div>
+              <div className="text-xs text-gray-400 mt-1">
+                URL: {window.location.href.substring(0, 80)}...
+              </div>
+              <div className="text-xs text-gray-400">
+                Params: {window.location.search || 'none'}
+              </div>
             </div>
+            
+            {authLogs.length > 0 && (
+              <div className="border-t border-purple-600 pt-2 mt-2">
+                <div className="text-purple-400 font-bold">AUTH LOGS:</div>
+                <div className="max-h-32 overflow-y-auto text-xs">
+                  {authLogs.map((log, i) => (
+                    <div key={i} className="text-purple-300 break-all">
+                      {log}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
-          <button
-            onClick={() => setIsVisible(false)}
-            className="mt-3 bg-gray-700 text-white px-2 py-1 rounded text-xs w-full"
-          >
-            CLOSE
-          </button>
+          <div className="mt-3 space-y-1">
+            <button
+              onClick={async () => {
+                if (discordSdk) {
+                  try {
+                    console.log('🧪 Manual test: Trying discordSdk.commands.getUser()')
+                    const user = await discordSdk.commands.getUser()
+                    console.log('🧪 Manual getUser result:', user)
+                  } catch (e) {
+                    console.error('🧪 Manual getUser failed:', e)
+                  }
+                }
+              }}
+              className="bg-blue-600 text-white px-2 py-1 rounded text-xs w-full"
+            >
+              TEST GET USER
+            </button>
+            <button
+              onClick={() => setIsVisible(false)}
+              className="bg-gray-700 text-white px-2 py-1 rounded text-xs w-full"
+            >
+              CLOSE
+            </button>
+          </div>
         </motion.div>
       )}
     </>
