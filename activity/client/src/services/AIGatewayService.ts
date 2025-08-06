@@ -116,6 +116,11 @@ class AIGatewayService {
    * Initialize connection to AI Gateway
    */
   async initialize(): Promise<void> {
+    // Temporarily disable WebSocket connections for Discord Activity
+    // WebSocket/Socket.IO not supported in current serverless API setup
+    console.log('🔌 AI Gateway WebSocket connection disabled for Discord Activity compatibility')
+    return Promise.resolve()
+    
     try {
       // Setup authentication
       const auth: Record<string, string> = {};

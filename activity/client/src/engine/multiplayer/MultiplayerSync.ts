@@ -136,10 +136,18 @@ export class MultiplayerSync extends EventEmitter {
   }
 
   public async initialize(userId: string): Promise<void> {
+    // Temporarily disable multiplayer for Discord Activity
+    // WebSocket/Socket.IO not supported in current serverless API setup
+    console.log('🔌 Multiplayer WebSocket connection disabled for Discord Activity compatibility')
+    
     if (!this.config.enabled) return
     
     this.playerId = userId
     this.localPlayerState.playerId = userId
+    
+    // Skip WebSocket initialization but mark as initialized for single-player mode
+    this.emit('initialized')
+    return
     
     try {
       await this.connect()

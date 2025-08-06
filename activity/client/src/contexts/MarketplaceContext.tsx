@@ -309,6 +309,12 @@ export function MarketplaceProvider({ children }: MarketplaceContextProps) {
   // ============================================================================
 
   const initializeWebSocket = useCallback(() => {
+    // Temporarily disable WebSocket connections for Discord Activity
+    // WebSocket/Socket.IO not supported in current serverless API setup
+    console.log('🔌 WebSocket connection disabled for Discord Activity compatibility')
+    dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'disconnected' })
+    return
+    
     if (!user || socketRef.current) return
 
     try {

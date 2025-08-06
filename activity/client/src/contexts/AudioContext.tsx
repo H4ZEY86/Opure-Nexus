@@ -125,8 +125,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
     }
     
-    // Initialize Socket.IO connection
+    // Initialize Socket.IO connection - Temporarily disabled for Discord Activity
     const initSocket = () => {
+      // WebSocket/Socket.IO not supported in current serverless API setup
+      console.log('🔌 Audio WebSocket connection disabled for Discord Activity compatibility')
+      return
+      
       const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
         autoConnect: true,
       })

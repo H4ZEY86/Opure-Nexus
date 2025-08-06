@@ -42,6 +42,11 @@ export class MarketplaceWebSocketService {
   }
 
   constructor(userId: string, username: string) {
+    // Temporarily disable WebSocket connections for Discord Activity
+    // WebSocket/Socket.IO not supported in current serverless API setup
+    console.log('🔌 Marketplace WebSocket connection disabled for Discord Activity compatibility')
+    return
+    
     this.connect(userId, username)
   }
 
