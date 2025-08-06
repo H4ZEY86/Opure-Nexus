@@ -88,7 +88,8 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           scope: ['identify', 'rpc.activities.write'],
           access_token: true
         })
-        console.log('✅ Method 1 successful:', authResult)
+        console.log('✅ Method 1 successful - Auth Result Keys:', Object.keys(authResult || {}))
+        console.log('✅ Method 1 successful - Full Result:', JSON.stringify(authResult, null, 2))
       } catch (error1) {
         console.warn('⚠️ Method 1 failed:', error1)
         
@@ -239,9 +240,32 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           }
         }
         
-        // Method 3: Create minimal user object from Discord Activity context
+        // Method 3: Try to get user info directly from Discord SDK instance
+        if (!discordUser && discordSdk) {
+          try {
+            console.log('🔄 Method 3: Getting user from Discord SDK instance...')
+            // Check if user info is available in the SDK itself
+            if (discordSdk.user) {
+              discordUser = discordSdk.user
+              console.log('✅ Method 3a success - Got user from SDK.user:', discordUser)
+            } else if ((discordSdk as any).instanceConnectedParticipants) {
+              // Try to get from instance participants
+              const participants = await discordSdk.commands.getInstanceConnectedParticipants()
+              if (participants && participants.participants && participants.participants.length > 0) {
+                discordUser = participants.participants[0]
+                console.log('✅ Method 3b success - Got user from participants:', discordUser)
+              }
+            } else {
+              console.log('⚠️ Method 3 - No user data available in SDK')
+            }
+          } catch (method3Error) {
+            console.warn('⚠️ Method 3 failed:', method3Error)
+          }
+        }
+        
+        // Method 4: Create minimal user object ONLY as last resort
         if (!discordUser && (authResult.code || authResult.access_token)) {
-          console.log('🔄 Method 3: Creating minimal user from Activity context...')
+          console.log('🔄 Method 4: Creating minimal user from Activity context (LAST RESORT)...')
           discordUser = {
             id: 'activity_user_' + Date.now(), // Temporary ID
             username: 'DiscordUser',
@@ -249,7 +273,7 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
             avatar: null,
             global_name: 'Discord User'
           }
-          console.log('✅ Method 3 success - Created minimal user object:', discordUser)
+          console.log('⚠️ Method 4 fallback - Created minimal user object:', discordUser)
         }
       }
       
