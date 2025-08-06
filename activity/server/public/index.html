@@ -9,17 +9,27 @@
     <p>This is a serverless API. All endpoints are handled by serverless functions.</p>
     <p>API endpoints are available at the root URL.</p>
     <script>
-        // Redirect to the API
-        if (window.location.pathname === '/') {
-            fetch('/api')
-                .then(response => response.json())
-                .then(data => {
-                    document.body.innerHTML = '<h1>API Response</h1><pre>' + JSON.stringify(data, null, 2) + '</pre>';
-                })
-                .catch(() => {
-                    document.body.innerHTML = '<h1>API Loading...</h1><p>Serverless function is starting up.</p>';
-                });
-        }
+        // Show API welcome message
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.innerHTML = `
+                <h1>🎮 Opure Discord Activity API</h1>
+                <p><strong>Status:</strong> ✅ Online and Running</p>
+                <h2>Available Endpoints:</h2>
+                <ul>
+                    <li><a href="/">/</a> - API Welcome</li>
+                    <li><a href="/health">/health</a> - Health Check</li>
+                    <li><a href="/api/auth/test">/api/auth/test</a> - Auth Test</li>
+                    <li>/api/auth/discord - Discord OAuth2 (POST)</li>
+                    <li>/api/auth/activity-sync - Activity Sync (POST)</li>
+                    <li>/api/bot/data - Bot Data (POST)</li>
+                    <li>/api/bot/sync/:userId - User Sync (GET)</li>
+                    <li>/api/ai/chat - AI Chat (POST)</li>
+                    <li>/api/music/queue - Music Queue (POST)</li>
+                    <li>/api/music/now-playing - Now Playing (GET)</li>
+                </ul>
+                <p><em>🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish AI • Rangers FC • Juice WRLD Forever</em></p>
+            `;
+        });
     </script>
 </body>
 </html>
