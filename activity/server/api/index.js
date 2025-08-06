@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('X-Frame-Options', 'ALLOWALL')
-  res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com;')
+  res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com;')
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -254,9 +254,25 @@ async function handleDiscordAuth(req, res) {
 
     const clientId = process.env.DISCORD_CLIENT_ID || '1388207626944249856'
     const clientSecret = process.env.DISCORD_CLIENT_SECRET
-    const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://opure.uk'
+    const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://www.opure.uk'
+    
+    // Check if required environment variables are set
+    if (!clientSecret) {
+      console.error('❌ DISCORD_CLIENT_SECRET environment variable is not set')
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error: Missing Discord client secret',
+        message: 'Contact administrator - Discord OAuth2 not properly configured'
+      })
+    }
     
     console.log('🔄 Exchanging code for access token...')
+    console.log('🔍 Environment check:', {
+      clientId: clientId.substring(0, 8) + '...',
+      hasClientSecret: !!clientSecret,
+      redirectUri,
+      codeLength: code.length
+    })
 
     // Exchange code for access token
     const tokenParams = new URLSearchParams({
