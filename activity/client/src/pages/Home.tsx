@@ -5,7 +5,7 @@ import { useDiscord } from '../hooks/useDiscord'
 import { useNavigate } from 'react-router-dom'
 
 export default function Home() {
-  const { user, participants, guild, channel } = useDiscord()
+  const { user, channel } = useDiscord()
   const navigate = useNavigate()
 
   const features = [
@@ -95,7 +95,7 @@ export default function Home() {
                     Welcome, {user.globalName || user.username}!
                   </h3>
                   <p className="text-sm text-gray-300">
-                    {guild ? `in ${guild.name}` : 'Ready to start'}
+                    {channel ? `in ${channel.name}` : 'Ready to start'}
                   </p>
                 </div>
               </div>
@@ -120,7 +120,7 @@ export default function Home() {
               </div>
               <div className="flex items-center space-x-2 text-gray-300">
                 <Users className="w-4 h-4" />
-                <span>{participants.length} participant{participants.length !== 1 ? 's' : ''}</span>
+                <span>Discord Activity</span>
               </div>
             </div>
           </motion.div>

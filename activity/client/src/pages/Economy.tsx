@@ -123,8 +123,9 @@ export default function Economy() {
         if (response.ok) {
           const data = await response.json()
           if (data.success && data.data.user) {
+            console.log('✅ Loaded real user economy data:', data.data.user)
             setEconomyData({
-              fragments: data.data.user.fragments || 250,
+              fragments: data.data.user.fragments || 0,
               level: data.data.user.level || 1,
               xp: data.data.user.xp || 0,
               lives: data.data.user.lives || 3,
@@ -132,9 +133,12 @@ export default function Economy() {
               dailyStreak: data.data.user.daily_streak || 0
             })
           }
+        } else {
+          console.warn('⚠️ API returned no user data, using defaults')
         }
       } catch (error) {
         console.error('Failed to fetch economy data:', error)
+        console.log('🔄 Using default values while API is unavailable')
       } finally {
         setLoading(false)
       }
