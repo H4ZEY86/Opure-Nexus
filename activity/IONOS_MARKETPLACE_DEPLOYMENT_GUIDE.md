@@ -9,8 +9,9 @@ This guide provides step-by-step instructions for deploying the Opure Discord Ac
 ## 🏗️ Architecture Overview
 
 ```
-Discord Client → IONOS Static Frontend → External API Gateway → Database
-                     (opure.uk)         (Railway/Vercel)      (PostgreSQL)
+Discord Client → Vercel Static Frontend → External API Gateway → Database
+                  (www.opure.uk)      (Vercel)
+                                    (api.opure.uk)             (PostgreSQL)
 ```
 
 **Components:**
@@ -581,5 +582,6 @@ Your marketplace is successfully deployed when:
 ✅ **Authentication/authorization working**  
 
 ---
+
 
 **Congratulations! Your AI Token Economy Marketplace is now live on IONOS with full Discord integration! 🚀**
