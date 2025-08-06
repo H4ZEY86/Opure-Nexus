@@ -3,10 +3,14 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
+import { DiscordProxy } from '@robojs/patch'
 import App from './App.tsx'
 import { DiscordProvider } from './contexts/DiscordContext.tsx'
 import { AudioProvider } from './contexts/AudioContext.tsx'
 import './index.css'
+
+// Apply Discord Activity network patch BEFORE everything else
+DiscordProxy.patch()
 
 const queryClient = new QueryClient({
   defaultOptions: {
