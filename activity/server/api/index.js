@@ -1,135 +1,262 @@
-const express = require('express')
-const cors = require('cors')
+// Vercel Serverless Function Handler
+// This file handles all API routes for the Opure Discord Activity
 
-const app = express()
+export default async function handler(req, res) {
+  console.log(`🚀 API Request: ${req.method} ${req.url}`)
+  
+  // Set CORS headers for Discord Activities
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  res.setHeader('X-Frame-Options', 'ALLOWALL')
+  res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com;')
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
 
-// Enhanced CORS configuration for Discord Activities
-app.use(cors({
-  origin: function (origin, callback) {
-    console.log('🌐 CORS origin check:', origin)
-    
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true)
-    
-    const allowedOrigins = [
-      process.env.CLIENT_URL || "http://localhost:3000",
-      "https://opure.uk", // Your client domain
-      "https://discord.com",
-      "https://ptb.discord.com", 
-      "https://canary.discord.com",
-      // Discord Activities run in iframes with these origins
-      "https://activities.discord.com",
-      "https://activities.staging.discord.co",
-      "null", // Discord Activities often show as null origin in iframe context
-    ]
-    
-    // Check if origin matches allowed patterns
-    const isAllowed = allowedOrigins.includes(origin) || 
-                     /\.discord\.com$/.test(origin) ||
-                     /\.discord\.co$/.test(origin)
-    
-    if (isAllowed) {
-      console.log('✅ CORS origin allowed:', origin)
-      callback(null, true)
-    } else {
-      console.log('❌ CORS origin blocked:', origin)
-      // For Discord Activities, we'll allow it anyway due to iframe constraints
-      callback(null, true)
+  const { method, url } = req
+  const path = url.split('?')[0] // Remove query parameters
+  
+  try {
+    // Route handling
+    if (path === '/' || path === '') {
+      return handleRoot(req, res)
     }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'X-CSRF-Token',
-    'X-Requested-With',
-    'Accept-Version',
-    'Content-Length',
-    'Content-MD5',
-    'Date',
-    'X-Api-Version'
-  ],
-  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
-  preflightContinue: false,
-  optionsSuccessStatus: 200
-}))
+    
+    if (path === '/health') {
+      return handleHealth(req, res)
+    }
+    
+    if (path.startsWith('/api/auth/activity-sync')) {
+      return handleActivitySync(req, res)
+    }
+    
+    if (path.startsWith('/api/auth/discord')) {
+      return handleDiscordAuth(req, res)
+    }
+    
+    if (path.startsWith('/api/auth/test')) {
+      return handleAuthTest(req, res)
+    }
+    
+    if (path.startsWith('/api/bot/data')) {
+      return handleBotData(req, res)
+    }
+    
+    if (path.startsWith('/api/bot/sync/')) {
+      return handleBotSync(req, res)
+    }
+    
+    if (path.startsWith('/api/ai/chat')) {
+      return handleAIChat(req, res)
+    }
+    
+    if (path.startsWith('/api/music/')) {
+      return handleMusic(req, res)
+    }
+    
+    // 404 for unknown routes
+    return res.status(404).json({
+      error: 'Not Found',
+      message: `Route ${path} not found`,
+      availableRoutes: [
+        '/',
+        '/health', 
+        '/api/auth/test',
+        '/api/auth/discord',
+        '/api/auth/activity-sync',
+        '/api/bot/data',
+        '/api/bot/sync/:userId',
+        '/api/ai/chat',
+        '/api/music/queue',
+        '/api/music/now-playing'
+      ]
+    })
+    
+  } catch (error) {
+    console.error('💥 API Error:', error)
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+}
 
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+// Route Handlers
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
+function handleRoot(req, res) {
+  return res.json({
+    message: "👋 Opure Discord Activity API is running!",
+    version: "2.0.0",
+    timestamp: new Date().toISOString(),
+    environment: "vercel-serverless",
+    health_check: "/health",
+    endpoints: {
+      auth: "/api/auth",
+      bot: "/api/bot", 
+      ai: "/api/ai",
+      music: "/api/music"
+    },
+    status: "✅ OPERATIONAL"
+  })
+}
+
+function handleHealth(req, res) {
+  return res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    version: '1.0.0',
+    version: '2.0.0',
+    environment: 'vercel-serverless',
     cors_origin: req.headers.origin || 'no-origin',
-    user_agent: req.headers['user-agent']
+    user_agent: req.headers['user-agent']?.substring(0, 100) || 'no-user-agent'
   })
-})
+}
 
-// Test endpoint for OAuth2 debugging
-app.get('/api/auth/test', (req, res) => {
-  res.json({
+function handleAuthTest(req, res) {
+  return res.json({
     success: true,
     message: 'OAuth2 endpoint is accessible',
-    headers: req.headers,
     timestamp: new Date().toISOString(),
     environment: {
       discord_client_id: process.env.DISCORD_CLIENT_ID ? 'SET' : 'NOT SET',
       discord_client_secret: process.env.DISCORD_CLIENT_SECRET ? 'SET' : 'NOT SET',
       discord_redirect_uri: process.env.DISCORD_REDIRECT_URI || 'https://opure.uk (default)',
+      vercel_env: process.env.VERCEL ? 'YES' : 'NO'
+    },
+    headers: {
+      origin: req.headers.origin,
+      'user-agent': req.headers['user-agent']?.substring(0, 50),
+      authorization: req.headers.authorization ? 'PRESENT' : 'MISSING'
     }
   })
-})
+}
 
-// Welcome endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: "👋 Opure Discord Activity API is running!",
-    health_check: "/health",
-    docs: "/api-docs",
-    endpoints: {
-      auth: "/api/auth",
-      music: "/api/music"
+async function handleActivitySync(req, res) {
+  if (req.method === 'GET') {
+    // GET request for testing - return endpoint info
+    return res.json({
+      message: 'Discord Activity Sync Endpoint',
+      method: 'POST',
+      description: 'Syncs Discord Activity authentication with server',
+      required_body: {
+        user: 'Discord user object',
+        discord_access_token: 'Access token from Discord'
+      },
+      status: 'ready',
+      timestamp: new Date().toISOString()
+    })
+  }
+  
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed. Use POST to sync or GET to test.' })
+  }
+
+  try {
+    console.log('🎮 Discord Activity sync request received')
+    
+    const { user, discord_access_token } = req.body
+    
+    if (!user || !discord_access_token) {
+      console.error('❌ Missing user data or Discord access token')
+      return res.status(400).json({
+        success: false,
+        error: 'User data and Discord access token are required'
+      })
     }
-  })
-})
 
-// Auth routes - Discord Activities OAuth2 Flow
-app.post('/api/auth/discord', async (req, res) => {
+    // Verify the Discord access token
+    console.log('🔍 Verifying Discord access token...')
+    const discordResponse = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: {
+        Authorization: `Bearer ${discord_access_token}`,
+      },
+    })
+
+    if (!discordResponse.ok) {
+      console.error('❌ Discord token verification failed')
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid Discord access token'
+      })
+    }
+
+    const discordUser = await discordResponse.json()
+    console.log('✅ Discord token verified for user:', discordUser.username)
+
+    // Verify user ID matches
+    if (discordUser.id !== user.id) {
+      console.error('❌ User ID mismatch')
+      return res.status(400).json({
+        success: false,
+        error: 'User ID mismatch'
+      })
+    }
+
+    // Create app-specific token
+    const token = Buffer.from(JSON.stringify({
+      userId: user.id,
+      username: user.username,
+      discriminator: user.discriminator,
+      avatar: user.avatar,
+      global_name: user.global_name,
+      source: 'activity',
+      timestamp: Date.now(),
+    })).toString('base64')
+
+    console.log('✅ Activity sync successful for user:', user.username)
+    
+    return res.json({
+      success: true,
+      message: 'Activity sync successful',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        discriminator: user.discriminator,
+        avatar: user.avatar,
+        global_name: user.global_name,
+      },
+      timestamp: new Date().toISOString()
+    })
+
+  } catch (error) {
+    console.error('💥 Activity sync error:', error)
+    return res.status(500).json({
+      success: false,
+      error: 'Activity sync failed',
+      message: error.message,
+    })
+  }
+}
+
+async function handleDiscordAuth(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
   try {
     console.log('🔐 Discord OAuth2 request received')
-    console.log('Request headers:', JSON.stringify(req.headers, null, 2))
-    console.log('Request body:', JSON.stringify(req.body, null, 2))
     
     const { code } = req.body
     
     if (!code) {
-      console.error('❌ Missing authorization code')
       return res.status(400).json({
         success: false,
         error: 'Authorization code is required'
       })
     }
 
-    // Discord Activities specific configuration
     const clientId = process.env.DISCORD_CLIENT_ID || '1388207626944249856'
     const clientSecret = process.env.DISCORD_CLIENT_SECRET
-    
-    // For Discord Activities, the redirect_uri should match what's configured in Discord Developer Portal
-    // This is typically the client domain, not the API endpoint
     const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://opure.uk'
     
     console.log('🔄 Exchanging code for access token...')
-    console.log('Client ID:', clientId)
-    console.log('Redirect URI:', redirectUri)
 
     // Exchange code for access token
     const tokenParams = new URLSearchParams({
@@ -140,8 +267,6 @@ app.post('/api/auth/discord', async (req, res) => {
       redirect_uri: redirectUri,
     })
 
-    console.log('Token exchange params:', tokenParams.toString())
-
     const tokenResponse = await fetch('https://discord.com/api/v10/oauth2/token', {
       method: 'POST',
       headers: {
@@ -150,30 +275,20 @@ app.post('/api/auth/discord', async (req, res) => {
       body: tokenParams,
     })
 
-    console.log('Token response status:', tokenResponse.status)
-
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error('❌ Token exchange failed:', errorText)
       return res.status(400).json({
         success: false,
         error: 'Invalid authorization code',
-        details: errorText,
-        debug: {
-          clientId,
-          redirectUri,
-          codeLength: code.length
-        }
+        details: errorText
       })
     }
 
     const tokenData = await tokenResponse.json()
-    console.log('✅ Token exchange successful')
-    
     const { access_token } = tokenData
 
     // Get user information
-    console.log('👤 Fetching user information...')
     const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
       headers: {
         Authorization: `Bearer ${access_token}`,
@@ -182,7 +297,6 @@ app.post('/api/auth/discord', async (req, res) => {
 
     if (!userResponse.ok) {
       const errorText = await userResponse.text()
-      console.error('❌ User fetch failed:', errorText)
       return res.status(500).json({
         success: false,
         error: 'Failed to fetch user information',
@@ -191,9 +305,9 @@ app.post('/api/auth/discord', async (req, res) => {
     }
 
     const user = await userResponse.json()
-    console.log(`✅ User authenticated: ${user.username}#${user.discriminator}`)
+    console.log(`✅ User authenticated: ${user.username}`)
 
-    // Create a simple JWT-like token (in production, use proper JWT)
+    // Create token
     const token = Buffer.from(JSON.stringify({
       userId: user.id,
       username: user.username,
@@ -202,7 +316,7 @@ app.post('/api/auth/discord', async (req, res) => {
       timestamp: Date.now(),
     })).toString('base64')
 
-    const response = {
+    return res.json({
       success: true,
       user: {
         id: user.id,
@@ -213,23 +327,23 @@ app.post('/api/auth/discord', async (req, res) => {
       },
       access_token,
       token,
-    }
-
-    console.log('🎉 Authentication successful, sending response')
-    res.json(response)
+    })
 
   } catch (error) {
     console.error('💥 Discord authentication error:', error)
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Authentication failed',
       message: error.message,
     })
   }
-})
+}
 
-// Bot data endpoint - receives status updates from bot.py
-app.post('/api/bot/data', async (req, res) => {
+async function handleBotData(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
   try {
     const { type, data } = req.body
     
@@ -240,32 +354,9 @@ app.post('/api/bot/data', async (req, res) => {
       })
     }
 
-    // Log the bot data update
-    console.log(`Bot data update - Type: ${type}`, data ? JSON.stringify(data).substring(0, 100) + '...' : 'No data')
+    console.log(`Bot data update - Type: ${type}`)
     
-    // Store or process the bot data based on type
-    switch (type) {
-      case 'status':
-        // Bot status update
-        console.log('Bot status:', data)
-        break
-      case 'user_data':
-        // User data sync
-        console.log('User data sync:', data)
-        break
-      case 'achievement':
-        // Achievement unlock
-        console.log('Achievement unlocked:', data)
-        break
-      case 'music':
-        // Music activity
-        console.log('Music activity:', data)
-        break
-      default:
-        console.log('Unknown bot data type:', type)
-    }
-
-    res.json({
+    return res.json({
       success: true,
       message: `Bot data received: ${type}`,
       timestamp: new Date().toISOString()
@@ -273,62 +364,54 @@ app.post('/api/bot/data', async (req, res) => {
     
   } catch (error) {
     console.error('Bot data endpoint error:', error)
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to process bot data'
     })
   }
-})
+}
 
-// Bot sync endpoint - allows Activity to request current bot data
-app.get('/api/bot/sync/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params
-    
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      })
-    }
-
-    // TODO: Implement actual database queries to bot's SQLite database
-    // For now, return mock data structure
-    const botData = {
-      user: {
-        id: userId,
-        fragments: 100,
-        data_shards: 0,
-        level: 1,
-        xp: 0,
-        lives: 3
-      },
-      achievements: [],
-      quests: [],
-      stats: {
-        messages_sent: 0,
-        commands_used: 0,
-        music_tracks_played: 0
-      }
-    }
-
-    res.json({
-      success: true,
-      data: botData,
-      timestamp: new Date().toISOString()
-    })
-    
-  } catch (error) {
-    console.error('Bot sync endpoint error:', error)
-    res.status(500).json({
+function handleBotSync(req, res) {
+  const userId = req.url.split('/').pop()
+  
+  if (!userId) {
+    return res.status(400).json({
       success: false,
-      error: 'Failed to sync bot data'
+      error: 'User ID is required'
     })
   }
-})
 
-// AI Chat endpoint - proxies requests to Ollama
-app.post('/api/ai/chat', async (req, res) => {
+  // Mock bot data for now
+  const botData = {
+    user: {
+      id: userId,
+      fragments: 100,
+      data_shards: 0,
+      level: 1,
+      xp: 0,
+      lives: 3
+    },
+    achievements: [],
+    quests: [],
+    stats: {
+      messages_sent: 0,
+      commands_used: 0,
+      music_tracks_played: 0
+    }
+  }
+
+  return res.json({
+    success: true,
+    data: botData,
+    timestamp: new Date().toISOString()
+  })
+}
+
+async function handleAIChat(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
   try {
     const { message, userId, context } = req.body
     
@@ -339,42 +422,7 @@ app.post('/api/ai/chat', async (req, res) => {
       })
     }
 
-    // TODO: Replace with actual Ollama endpoint when available
-    const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434'
-    
-    // Construct prompt with Scottish personality and Juice WRLD context
-    const prompt = `You are Opure.exe, a Scottish AI assistant obsessed with Rangers FC and Juice WRLD. 
-    User context: ${context || 'No additional context'}
-    User ${userId || 'Anonymous'}: ${message}`
-
-    try {
-      // Attempt to connect to Ollama (will fail in Vercel, fallback to mock)
-      const ollamaResponse = await fetch(`${OLLAMA_HOST}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'opure',
-          prompt: prompt,
-          stream: false
-        }),
-        timeout: 10000
-      })
-
-      if (ollamaResponse.ok) {
-        const aiData = await ollamaResponse.json()
-        return res.json({
-          success: true,
-          response: aiData.response,
-          timestamp: new Date().toISOString()
-        })
-      }
-    } catch (ollamaError) {
-      console.log('Ollama not available, using fallback response')
-    }
-
-    // Fallback Scottish AI responses for demo/production
+    // Fallback Scottish AI responses for demo
     const scottishResponses = [
       "Aye, that's a pure mental question! Rangers are the best team in Scotland, ken!",
       "Juice WRLD was a legend, rest in peace. His music still hits different, ye know?",
@@ -386,7 +434,7 @@ app.post('/api/ai/chat', async (req, res) => {
 
     const response = scottishResponses[Math.floor(Math.random() * scottishResponses.length)]
 
-    res.json({
+    return res.json({
       success: true,
       response: response,
       fallback: true,
@@ -395,16 +443,17 @@ app.post('/api/ai/chat', async (req, res) => {
     
   } catch (error) {
     console.error('AI chat endpoint error:', error)
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'AI chat failed'
     })
   }
-})
+}
 
-// Music endpoints
-app.post('/api/music/queue', async (req, res) => {
-  try {
+function handleMusic(req, res) {
+  const path = req.url.split('?')[0]
+  
+  if (path.includes('/queue') && req.method === 'POST') {
     const { query, userId } = req.body
     
     if (!query || !userId) {
@@ -414,8 +463,7 @@ app.post('/api/music/queue', async (req, res) => {
       })
     }
 
-    // TODO: Implement music queue logic
-    res.json({
+    return res.json({
       success: true,
       message: `Queued "${query}" for user ${userId}`,
       track: {
@@ -425,20 +473,10 @@ app.post('/api/music/queue', async (req, res) => {
       },
       timestamp: new Date().toISOString()
     })
-    
-  } catch (error) {
-    console.error('Music queue endpoint error:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Failed to queue music'
-    })
   }
-})
-
-app.get('/api/music/now-playing', async (req, res) => {
-  try {
-    // TODO: Get actual now playing from bot
-    res.json({
+  
+  if (path.includes('/now-playing') && req.method === 'GET') {
+    return res.json({
       success: true,
       nowPlaying: {
         title: 'Lucid Dreams - Juice WRLD',
@@ -450,14 +488,10 @@ app.get('/api/music/now-playing', async (req, res) => {
       queue: [],
       timestamp: new Date().toISOString()
     })
-    
-  } catch (error) {
-    console.error('Now playing endpoint error:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get now playing'
-    })
   }
-})
-
-module.exports = app
+  
+  return res.status(404).json({
+    error: 'Music endpoint not found',
+    available: ['/api/music/queue', '/api/music/now-playing']
+  })
+}
