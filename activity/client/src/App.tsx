@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
 import Home from './pages/Home'
@@ -9,7 +9,6 @@ import Achievements from './pages/Achievements'
 import Economy from './pages/Economy'
 import AIChat from './pages/AIChat'
 import Admin from './pages/Admin'
-import DiscordTest from './pages/DiscordTest'
 import NotFound from './pages/NotFound'
 import { useDiscord } from './hooks/useDiscord'
 import LoadingScreen from './components/common/LoadingScreen'
@@ -129,7 +128,6 @@ export default function App() {
                 <Route path="/ai-chat" element={<AIChat />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/admin" element={<Admin />} />
-                <Route path="/discord-test" element={<DiscordTest />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </motion.div>
@@ -149,20 +147,20 @@ export default function App() {
               { path: '/settings', icon: '⚙️', label: 'Settings' },
               { path: '/admin', icon: '🛡️', label: 'Admin', adminOnly: true }
             ].filter(item => !item.adminOnly || (user && user.admin)).map(({ path, icon, label }) => (
-              <motion.a
-                key={path}
-                href={path}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className={`flex flex-col items-center space-y-1 px-4 py-2 rounded-xl transition-colors ${
-                  location.pathname === path
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/60 hover:text-white/80'
-                }`}
-              >
-                <span className="text-xl">{icon}</span>
-                <span className="text-xs font-medium">{label}</span>
-              </motion.a>
+              <Link key={path} to={path}>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex flex-col items-center space-y-1 px-4 py-2 rounded-xl transition-colors ${
+                    location.pathname === path
+                      ? 'bg-white/10 text-white'
+                      : 'text-white/60 hover:text-white/80'
+                  }`}
+                >
+                  <span className="text-xl">{icon}</span>
+                  <span className="text-xs font-medium">{label}</span>
+                </motion.div>
+              </Link>
             ))}
           </div>
         </nav>

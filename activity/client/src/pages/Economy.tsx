@@ -101,14 +101,7 @@ const shopItems: ShopItem[] = [
 
 export default function Economy() {
   const { user } = useDiscord()
-  const [economyData, setEconomyData] = useState<UserEconomyData>({
-    fragments: 250,
-    level: 3,
-    xp: 450,
-    lives: 2,
-    dataShards: 5,
-    dailyStreak: 3
-  })
+  const [economyData, setEconomyData] = useState<UserEconomyData | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState<string | null>(null)
@@ -178,10 +171,10 @@ export default function Economy() {
     }
   }
 
-  const xpToNextLevel = 500 * economyData.level
-  const xpProgress = (economyData.xp / xpToNextLevel) * 100
+  const xpToNextLevel = economyData ? 500 * economyData.level : 500
+  const xpProgress = economyData ? (economyData.xp / xpToNextLevel) * 100 : 0
 
-  if (loading) {
+  if (loading || !economyData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div
