@@ -175,13 +175,17 @@ export default function Economy() {
   const xpProgress = economyData ? (economyData.xp / xpToNextLevel) * 100 : 0
 
   if (loading || !economyData) {
+    console.log('💰 Economy loading state:', { loading, hasEconomyData: !!economyData, hasUser: !!user })
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center flex-col">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="w-8 h-8 border-2 border-green-400 border-t-transparent rounded-full"
+          className="w-8 h-8 border-2 border-green-400 border-t-transparent rounded-full mb-4"
         />
+        <p className="text-white/60 text-sm">
+          {!user ? 'Waiting for user authentication...' : 'Loading economy data...'}
+        </p>
       </div>
     )
   }

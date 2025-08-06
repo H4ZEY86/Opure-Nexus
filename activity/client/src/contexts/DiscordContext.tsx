@@ -358,20 +358,23 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         const hasDiscordQuery = window.location.search.includes('frame_id') || 
                                window.location.search.includes('instance_id')
         
-        // Basic Discord context check
-        const isLikelyInDiscord = inIframe || discordReferrer || hasDiscordQuery
+        // Enhanced Discord context check - force authentication for production domain
+        const isProductionDomain = window.location.hostname === 'www.opure.uk'
+        const isLikelyInDiscord = inIframe || discordReferrer || hasDiscordQuery || isProductionDomain
         
         console.log('🔍 Environment check:', {
           inIframe,
           discordReferrer,
           hasDiscordQuery,
+          isProductionDomain,
           isLikelyInDiscord,
           referrer: document.referrer,
           url: window.location.href,
           userAgent: navigator.userAgent.substring(0, 100)
         })
         
-        if (!isLikelyInDiscord) {
+        // Force Discord SDK initialization on production domain
+        if (!isLikelyInDiscord && !isProductionDomain) {
           console.warn('⚠️ NOT in Discord Activity context!')
           console.warn('💡 To test this Activity:')
           console.warn('   1. Open Discord')
@@ -406,23 +409,14 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         setDiscordSdk(sdk)
         setReady(true)
 
-        // Check for stored authentication
-        const storedAuth = localStorage.getItem('discord_authenticated')
-        const storedUser = localStorage.getItem('discord_user')
+        // Clear any stale authentication data and force fresh login
+        console.log('🔐 Clearing stored authentication - forcing fresh Discord OAuth2')
+        localStorage.removeItem('discord_authenticated')
+        localStorage.removeItem('discord_user')
+        localStorage.removeItem('discord_access_token')
+        localStorage.removeItem('auth_token')
         
-        if (storedAuth === 'true' && storedUser) {
-          try {
-            const userData = JSON.parse(storedUser)
-            console.log('🔄 Using stored authentication for user:', userData.username)
-            setUser(userData)
-          } catch (parseError) {
-            console.warn('⚠️ Failed to parse stored user data:', parseError)
-            localStorage.removeItem('discord_authenticated')
-            localStorage.removeItem('discord_user')
-          }
-        } else {
-          console.log('🔐 No stored authentication - user will need to authenticate')
-        }
+        console.log('🔐 User will need to authenticate with Discord')
 
         setIsLoading(false)
 
