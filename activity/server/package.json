@@ -5,13 +5,13 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "mkdir -p public && cp -r api public/ && echo 'Build completed - public directory created'",
     "start": "node dist/index.js",
     "test": "vitest",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "clean": "rm -rf dist",
-    "vercel-build": "echo 'Serverless function ready - no build needed!'"
+    "clean": "rm -rf dist public",
+    "vercel-build": "mkdir -p public && cp -r api public/ && echo 'Vercel build completed'"
   },
   "dependencies": {
     "axios": "^1.6.0",

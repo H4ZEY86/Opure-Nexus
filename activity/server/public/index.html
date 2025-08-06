@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Opure Discord Activity API</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>Opure Discord Activity API</h1>
+    <p>This is a serverless API. All endpoints are handled by serverless functions.</p>
+    <p>API endpoints are available at the root URL.</p>
+    <script>
+        // Redirect to the API
+        if (window.location.pathname === '/') {
+            fetch('/api')
+                .then(response => response.json())
+                .then(data => {
+                    document.body.innerHTML = '<h1>API Response</h1><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(() => {
+                    document.body.innerHTML = '<h1>API Loading...</h1><p>Serverless function is starting up.</p>';
+                });
+        }
+    </script>
+</body>
+</html>
