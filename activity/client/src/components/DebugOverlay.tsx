@@ -5,6 +5,7 @@ import { useDiscord } from '../hooks/useDiscord'
 export default function DebugOverlay() {
   const [isVisible, setIsVisible] = useState(false)
   const [authLogs, setAuthLogs] = useState<string[]>([])
+  const [testResults, setTestResults] = useState<string[]>([])
   const { user, discordSdk, ready, isLoading, error } = useDiscord()
   
   // Capture console logs for debugging
@@ -102,6 +103,19 @@ export default function DebugOverlay() {
               </div>
             </div>
             
+            {testResults.length > 0 && (
+              <div className="border-t border-yellow-600 pt-2 mt-2">
+                <div className="text-yellow-400 font-bold">TEST RESULTS:</div>
+                <div className="max-h-32 overflow-y-auto text-xs">
+                  {testResults.map((result, i) => (
+                    <div key={i} className="text-yellow-300 break-all mb-1">
+                      {result}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {authLogs.length > 0 && (
               <div className="border-t border-purple-600 pt-2 mt-2">
                 <div className="text-purple-400 font-bold">AUTH LOGS:</div>
@@ -119,19 +133,56 @@ export default function DebugOverlay() {
           <div className="mt-3 space-y-1">
             <button
               onClick={async () => {
-                if (discordSdk) {
-                  try {
-                    console.log('🧪 Manual test: Trying discordSdk.commands.getUser()')
-                    const user = await discordSdk.commands.getUser()
-                    console.log('🧪 Manual getUser result:', user)
-                  } catch (e) {
-                    console.error('🧪 Manual getUser failed:', e)
-                  }
+                if (!discordSdk) {
+                  setTestResults(prev => [...prev.slice(-5), 'No Discord SDK available'])
+                  return
                 }
+                
+                setTestResults(prev => [...prev.slice(-5), 'Testing Discord SDK...'])
+                
+                // Test 1: Available commands
+                try {
+                  const commands = Object.keys(discordSdk.commands || {})
+                  setTestResults(prev => [...prev.slice(-5), `Available commands: ${commands.join(', ')}`])
+                } catch (e) {
+                  setTestResults(prev => [...prev.slice(-5), `Commands error: ${e.message}`])
+                }
+                
+                // Test 2: getUser
+                try {
+                  const user = await discordSdk.commands.getUser()
+                  setTestResults(prev => [...prev.slice(-5), `getUser result: ${JSON.stringify(user)}`])
+                } catch (e) {
+                  setTestResults(prev => [...prev.slice(-5), `getUser failed: ${e.message}`])
+                }
+                
+                // Test 3: authenticate
+                try {
+                  const authResult = await discordSdk.commands.authenticate({
+                    scope: ['identify']
+                  })
+                  setTestResults(prev => [...prev.slice(-5), `Auth result: ${JSON.stringify(authResult)}`])
+                } catch (e) {
+                  setTestResults(prev => [...prev.slice(-5), `Auth failed: ${e.message}`])
+                }
+                
+                // Test 4: Check SDK properties
+                const sdkInfo = {
+                  clientId: discordSdk.clientId,
+                  user: discordSdk.user ? 'exists' : 'null',
+                  instanceId: (discordSdk as any).instanceId || 'none'
+                }
+                setTestResults(prev => [...prev.slice(-5), `SDK info: ${JSON.stringify(sdkInfo)}`])
               }}
               className="bg-blue-600 text-white px-2 py-1 rounded text-xs w-full"
             >
-              TEST GET USER
+              RUN TESTS
+            </button>
+            <button
+              onClick={() => setTestResults([])}
+              className="bg-orange-600 text-white px-2 py-1 rounded text-xs w-full"
+            >
+              CLEAR TESTS
             </button>
             <button
               onClick={() => setIsVisible(false)}
