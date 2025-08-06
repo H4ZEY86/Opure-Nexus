@@ -68,12 +68,14 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       // Try the standard Discord Activity authentication with different approaches
       let authResult = null
       
-      // Method 0: Try authenticate with access_token scope (must authenticate first)
+      // Method 0: Try authorize (Discord Activity standard method)
       try {
-        console.log('🔄 Method 0: authenticate() with access_token scope')
-        authResult = await discordSdk.commands.authenticate({
-          scope: ['identify', 'rpc.activities.write'],
-          access_token: true
+        console.log('🔄 Method 0: authorize() - Discord Activity standard method')
+        authResult = await discordSdk.commands.authorize({
+          client_id: discordSdk.clientId,
+          response_type: 'code',
+          state: '',
+          scope: 'identify rpc.activities.write'
         })
         console.log('✅ Method 0 successful - Auth Result Keys:', Object.keys(authResult || {}))
         console.log('✅ Method 0 successful - Full Result:', JSON.stringify(authResult, null, 2))
