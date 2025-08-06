@@ -72,18 +72,39 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       try {
         console.log('🔄 Method 0: Getting user from Activity participants')
         const participantsData = await discordSdk.commands.getInstanceConnectedParticipants()
-        console.log('✅ Participants data:', participantsData)
+        console.log('🔍 Raw participants response:', JSON.stringify(participantsData, null, 2))
+        console.log('🔍 Participants array length:', participantsData?.participants?.length || 0)
+        console.log('🔍 Participants structure check:', {
+          hasParticipants: !!participantsData?.participants,
+          isArray: Array.isArray(participantsData?.participants),
+          firstParticipant: participantsData?.participants?.[0] || null
+        })
         
         if (participantsData && participantsData.participants && participantsData.participants.length > 0) {
           // Find the current user (usually the first one or marked somehow)
           const currentUser = participantsData.participants[0] // Or find by some criteria
-          console.log('✅ Method 0 successful - Found user in participants:', currentUser)
-          authResult = { user: currentUser, access_token: null }
+          console.log('✅ Method 0 successful - Found user in participants:', JSON.stringify(currentUser, null, 2))
+          
+          // Validate the user object has required Discord user fields
+          if (currentUser && currentUser.id && currentUser.username) {
+            console.log('✅ Method 0 - Valid user object found with ID and username')
+            authResult = { user: currentUser, access_token: null }
+          } else {
+            console.warn('⚠️ Method 0 - Participant found but missing user fields:', currentUser)
+            throw new Error('Participant missing required user fields (id, username)')
+          }
         } else {
-          throw new Error('No participants found')
+          console.warn('⚠️ Method 0 - No participants in response:', {
+            hasData: !!participantsData,
+            hasParticipantsArray: !!participantsData?.participants,
+            participantCount: participantsData?.participants?.length || 0,
+            rawResponse: participantsData
+          })
+          throw new Error('No participants found in getInstanceConnectedParticipants response')
         }
       } catch (error0) {
         console.warn('⚠️ Method 0 failed:', error0.message)
+        console.warn('🔍 Method 0 error details:', error0)
         
         // Method 1: Try authenticate with access_token scope
         try {

@@ -156,6 +156,18 @@ export default function DebugOverlay() {
                   setTestResults(prev => [...prev.slice(-5), `getUser failed: ${e.message}`])
                 }
                 
+                // Test 2.5: getInstanceConnectedParticipants (CRITICAL TEST)
+                try {
+                  const participants = await discordSdk.commands.getInstanceConnectedParticipants()
+                  setTestResults(prev => [...prev.slice(-5), `participants: ${JSON.stringify(participants)}`])
+                  if (participants?.participants?.length > 0) {
+                    const firstUser = participants.participants[0]
+                    setTestResults(prev => [...prev.slice(-5), `first user: ${JSON.stringify(firstUser)}`])
+                  }
+                } catch (e) {
+                  setTestResults(prev => [...prev.slice(-5), `participants failed: ${e.message}`])
+                }
+                
                 // Test 3: authenticate
                 try {
                   const authResult = await discordSdk.commands.authenticate({
