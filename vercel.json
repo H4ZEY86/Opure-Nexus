@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd activity/client && npm ci && npm run build",
+  "buildCommand": "cd activity/client && npm install && npm run build",
   "outputDirectory": "activity/client/dist",
   "rewrites": [
     {
