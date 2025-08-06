@@ -58,13 +58,16 @@ app.use(cors({
   origin: [
     process.env.CLIENT_URL || "http://localhost:3000",
     "https://discord.com",
-    "https://ptb.discord.com",
+    "https://ptb.discord.com", 
     "https://canary.discord.com",
+    "https://www.opure.uk",
+    "https://opure.uk",
     /\.discord\.com$/,
+    /\.discordsays\.com$/, // Discord Activity domains
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
 }))
 
 // Rate limiting
