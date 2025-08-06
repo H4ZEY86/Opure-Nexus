@@ -201,11 +201,14 @@ export default function DebugOverlay() {
                 
                 // Test direct authentication like the app does
                 try {
-                  console.log('🧪 DEBUG TEST: Direct authenticate() call')
-                  const authResult = await discordSdk.commands.authenticate({
-                    scope: ['identify', 'rpc.activities.write']
+                  console.log('🧪 DEBUG TEST: Direct authorize() call')
+                  const authResult = await discordSdk.commands.authorize({
+                    client_id: discordSdk.clientId,
+                    response_type: 'code',
+                    state: '',
+                    scope: 'identify rpc.activities.write'
                   })
-                  setTestResults(prev => [...prev.slice(-5), `Direct auth SUCCESS: ${JSON.stringify(authResult)}`])
+                  setTestResults(prev => [...prev.slice(-5), `Direct authorize SUCCESS: ${JSON.stringify(authResult)}`])
                   
                   // Try participants after auth
                   try {
@@ -215,8 +218,23 @@ export default function DebugOverlay() {
                     setTestResults(prev => [...prev.slice(-5), `Post-auth participants failed: ${e.message}`])
                   }
                 } catch (e) {
-                  setTestResults(prev => [...prev.slice(-5), `Direct auth FAILED: ${e.message}`])
-                  console.error('🧪 DEBUG TEST: Auth failed:', e)
+                  setTestResults(prev => [...prev.slice(-5), `Direct authorize FAILED: ${e.message}`])
+                  console.error('🧪 DEBUG TEST: Authorize failed:', e)
+                  
+                  // Fallback: Try with array scope
+                  try {
+                    setTestResults(prev => [...prev.slice(-5), 'Trying authorize with array scope...'])
+                    const authResult2 = await discordSdk.commands.authorize({
+                      client_id: discordSdk.clientId,
+                      response_type: 'code',
+                      state: '',
+                      scope: ['identify', 'rpc.activities.write']
+                    })
+                    setTestResults(prev => [...prev.slice(-5), `Array scope SUCCESS: ${JSON.stringify(authResult2)}`])
+                  } catch (e2) {
+                    setTestResults(prev => [...prev.slice(-5), `Array scope FAILED: ${e2.message}`])
+                    console.error('🧪 DEBUG TEST: Array scope failed:', e2)
+                  }
                 }
               }}
               className="bg-green-600 text-white px-2 py-1 rounded text-xs w-full"
