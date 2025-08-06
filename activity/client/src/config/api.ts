@@ -87,23 +87,13 @@ export const discordActivityFetch = async (endpoint: string, options: RequestIni
   }
 }
 
-// Mock responses when API is not reachable
+// Mock responses when API is not reachable - NO FAKE USER DATA!
 const getMockResponse = (endpoint: string, options: RequestInit) => {
-  console.log(`🎭 Using mock response for ${endpoint}`)
+  console.error(`❌ API endpoint ${endpoint} not reachable - returning error instead of fake data`)
   
   if (endpoint.includes('/api/auth/discord') && options.method === 'POST') {
-    return {
-      success: true,
-      user: {
-        id: '1234567890',
-        username: 'ActivityUser', 
-        discriminator: '0001',
-        avatar: null,
-        global_name: 'Discord Activity User'
-      },
-      token: 'mock-token-' + Date.now(),
-      method: 'mock_api_response'
-    }
+    // DON'T return fake user data - throw error to force real authentication
+    throw new Error('API authentication failed - use Discord SDK authentication instead')
   }
   
   if (endpoint.includes('/api/bot/sync/')) {
