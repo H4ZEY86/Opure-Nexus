@@ -172,7 +172,6 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           }
         }
       }
-      }
       
       if (!authResult) {
         throw new Error('Authentication failed - no result received')
