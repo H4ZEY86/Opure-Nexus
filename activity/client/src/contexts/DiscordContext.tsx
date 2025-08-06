@@ -68,15 +68,19 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       // Try the standard Discord Activity authentication with different approaches
       let authResult = null
       
-      // Method 0: Check if user is already available (sometimes no auth needed)
+      // Method 0: Get user from Activity participants (Discord Activity API)
       try {
-        console.log('🔄 Method 0: Check if user already available without auth')
-        const existingUser = await discordSdk.commands.getUser()
-        if (existingUser) {
-          console.log('✅ Method 0 successful - User already available:', existingUser)
-          authResult = { user: existingUser, access_token: null }
+        console.log('🔄 Method 0: Getting user from Activity participants')
+        const participantsData = await discordSdk.commands.getInstanceConnectedParticipants()
+        console.log('✅ Participants data:', participantsData)
+        
+        if (participantsData && participantsData.participants && participantsData.participants.length > 0) {
+          // Find the current user (usually the first one or marked somehow)
+          const currentUser = participantsData.participants[0] // Or find by some criteria
+          console.log('✅ Method 0 successful - Found user in participants:', currentUser)
+          authResult = { user: currentUser, access_token: null }
         } else {
-          throw new Error('No existing user')
+          throw new Error('No participants found')
         }
       } catch (error0) {
         console.warn('⚠️ Method 0 failed:', error0.message)
