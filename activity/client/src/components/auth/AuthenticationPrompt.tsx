@@ -5,6 +5,16 @@ import { useDiscord } from '../../hooks/useDiscord'
 
 export default function AuthenticationPrompt() {
   const { authenticate, isLoading, error } = useDiscord()
+  
+  const handleAuthenticate = async () => {
+    try {
+      console.log('🔐 AuthenticationPrompt: Starting authentication...')
+      await authenticate()
+      console.log('✅ AuthenticationPrompt: Authentication completed successfully!')
+    } catch (err) {
+      console.error('❌ AuthenticationPrompt: Authentication failed:', err)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
@@ -83,7 +93,7 @@ export default function AuthenticationPrompt() {
             transition={{ delay: 0.6 }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={authenticate}
+            onClick={handleAuthenticate}
             disabled={isLoading}
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >

@@ -1,3 +1,4 @@
+import React from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
@@ -29,6 +30,16 @@ const pageTransition = {
 export default function App() {
   const location = useLocation()
   const { isLoading, discordSdk, user } = useDiscord()
+  
+  // Debug user state
+  React.useEffect(() => {
+    console.log('🎮 App: User state changed:', { 
+      hasUser: !!user, 
+      username: user?.username, 
+      id: user?.id,
+      isLoading 
+    })
+  }, [user, isLoading])
 
   if (isLoading) {
     return <LoadingScreen />

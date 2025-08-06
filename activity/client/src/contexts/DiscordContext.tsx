@@ -269,8 +269,9 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         avatar_decoration_data: discordUser.avatar_decoration_data ?? null
       }
 
-      console.log('👤 User authenticated:', userData.username)
+      console.log('👤 Setting authenticated user in context:', userData.username, 'ID:', userData.id)
       setUser(userData)
+      console.log('✅ User context updated successfully')
 
       // Optional: Sync with server for app-specific data
       try {
