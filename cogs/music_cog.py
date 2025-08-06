@@ -2194,6 +2194,15 @@ class MusicInstance:
                 if not self.voice_client or not self.voice_client.is_connected():
                     self.bot.add_log(f"Player for {self.guild.name} stopping, VC disconnected.")
                     break
+                
+                # Validate song data before processing
+                if not next_song_data or not isinstance(next_song_data, dict):
+                    self.bot.add_error(f"Invalid song data received: {type(next_song_data)} - {next_song_data}")
+                    continue
+                    
+                if not next_song_data.get('webpage_url'):
+                    self.bot.add_error(f"Song data missing webpage_url: {next_song_data}")
+                    continue
 
                 try:
                     source = await asyncio.wait_for(
@@ -2206,8 +2215,8 @@ class MusicInstance:
                     if (hasattr(self, 'current_playlist_info') and self.current_playlist_info and 
                         hasattr(self, 'current_playlist_tracks') and self.current_playlist_tracks):
                         # Find the index of this song in the playlist
-                        for i, track in enumerate(self.current_playlist_tracks):
-                            if track.get('webpage_url') == next_song_data.get('webpage_url'):
+                        for i, track in enumerate(self.current_playlist_tracks or []):
+                            if track and track.get('webpage_url') == next_song_data.get('webpage_url'):
                                 self.playback_index = i
                                 break
                                 
@@ -2220,8 +2229,8 @@ class MusicInstance:
                     # If this was a playlist song that failed, still increment the index
                     if (hasattr(self, 'current_playlist_info') and self.current_playlist_info and 
                         hasattr(self, 'current_playlist_tracks') and self.current_playlist_tracks):
-                        for i, track in enumerate(self.current_playlist_tracks):
-                            if track.get('webpage_url') == next_song_data.get('webpage_url'):
+                        for i, track in enumerate(self.current_playlist_tracks or []):
+                            if track and track.get('webpage_url') == next_song_data.get('webpage_url'):
                                 self.playback_index = i
                                 break
                     continue
