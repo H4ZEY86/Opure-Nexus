@@ -9,6 +9,14 @@
   ],
   "routes": [
     {
+      "src": "/assets/(.*)",
+      "headers": {
+        "X-Frame-Options": "ALLOWALL",
+        "Access-Control-Allow-Origin": "*"
+      },
+      "dest": "/assets/$1"
+    },
+    {
       "src": "/(.*)",
       "headers": {
         "X-Frame-Options": "ALLOWALL",
