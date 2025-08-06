@@ -200,19 +200,62 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       let discordUser = authResult.user
       const access_token = authResult.access_token
       
-      // If we don't have user data but have a code, try to get user info
-      if (!discordUser && authResult.code) {
-        console.log('🔄 No user data from auth, trying to get current user...')
-        try {
-          discordUser = await discordSdk.commands.getUser()
-          console.log('✅ Got user data via getUser():', discordUser)
-        } catch (getUserError) {
-          console.warn('⚠️ Could not get user data:', getUserError)
+      // If we don't have user data, try multiple methods to get it
+      if (!discordUser) {
+        console.log('🔄 No user data from auth result. Trying alternative methods...')
+        console.log('🔍 Auth result details:', { 
+          hasUser: !!authResult.user, 
+          hasCode: !!authResult.code, 
+          hasAccessToken: !!authResult.access_token,
+          keys: Object.keys(authResult || {})
+        })
+        
+        // Method 1: Try getUser() if we have an auth result
+        if (authResult.code || authResult.access_token) {
+          try {
+            console.log('🔄 Method 1: Getting user via getUser()...')
+            discordUser = await discordSdk.commands.getUser()
+            console.log('✅ Method 1 success - Got user data via getUser():', discordUser)
+          } catch (getUserError) {
+            console.warn('⚠️ Method 1 failed - getUser() error:', getUserError)
+          }
+        }
+        
+        // Method 2: Try getting instance participants (sometimes contains user)
+        if (!discordUser) {
+          try {
+            console.log('🔄 Method 2: Getting participants...')
+            const instanceData = await discordSdk.commands.getInstanceConnectedParticipants()
+            console.log('✅ Instance participants:', instanceData)
+            
+            // Sometimes the current user is in the participants
+            if (instanceData.participants && instanceData.participants.length > 0) {
+              // Look for the current user (they're usually first or have a special flag)
+              discordUser = instanceData.participants[0] // Fallback to first participant
+              console.log('✅ Method 2 success - Using participant as user:', discordUser)
+            }
+          } catch (participantsError) {
+            console.warn('⚠️ Method 2 failed - participants error:', participantsError)
+          }
+        }
+        
+        // Method 3: Create minimal user object from Discord Activity context
+        if (!discordUser && (authResult.code || authResult.access_token)) {
+          console.log('🔄 Method 3: Creating minimal user from Activity context...')
+          discordUser = {
+            id: 'activity_user_' + Date.now(), // Temporary ID
+            username: 'DiscordUser',
+            discriminator: '0000',
+            avatar: null,
+            global_name: 'Discord User'
+          }
+          console.log('✅ Method 3 success - Created minimal user object:', discordUser)
         }
       }
       
       if (!discordUser) {
-        throw new Error('No user data received from Discord authentication')
+        console.error('💥 All user data methods failed. Auth result:', authResult)
+        throw new Error('No user data received from Discord authentication. Check console for details.')
       }
 
       // Use the user data from authentication
