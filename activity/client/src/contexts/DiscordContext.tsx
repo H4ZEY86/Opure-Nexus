@@ -61,363 +61,107 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
       console.log('✅ SDK ready, proceeding with authentication...')
 
-      // Use Discord Activity authenticate method (the correct one for Activities)
-      console.log('🎮 Calling Discord authenticate...')
-      console.log('🔍 Available SDK commands:', Object.keys(discordSdk.commands || {}))
+      // CRITICAL FIX: Get participants FIRST without any OAuth2 calls
+      console.log('🎯 STEP 1: Getting real Discord users from Activity (NO OAUTH2 NEEDED)')
       
-      // Try the standard Discord Activity authentication with different approaches
-      let authResult = null
+      let realUser = null
+      let participants = null
       
-      // Method 0: Discord Activity REAL USER authentication (NO FALLBACKS)
       try {
-        console.log('🔄 Method 0: REAL Discord Activity authentication - no mock data allowed')
+        // Get participants WITHOUT any authenticate/authorize calls first
+        participants = await discordSdk.commands.getInstanceConnectedParticipants()
+        console.log('✅ Raw participants data:', JSON.stringify(participants, null, 2))
         
-        // CRITICAL: Get real participants FIRST to ensure we have real user data
-        console.log('🔄 Getting REAL participants before authorization...')
-        const preAuthParticipants = await discordSdk.commands.getInstanceConnectedParticipants()
-        console.log('✅ Pre-auth participants:', JSON.stringify(preAuthParticipants, null, 2))
-        
-        if (!preAuthParticipants?.participants?.length) {
-          throw new Error('CRITICAL: No participants found - Activity not properly launched')
+        if (!participants?.participants?.length) {
+          console.error('❌ No participants found in Activity')
+          throw new Error('No users found in this Discord Activity. Make sure you launched it from a voice channel with other users.')
         }
         
-        // Get the current user from participants (this is the REAL user)
-        const realUser = preAuthParticipants.participants[0]
-        console.log('🎯 REAL USER IDENTIFIED:', JSON.stringify(realUser, null, 2))
+        // Find the current user (Discord provides this automatically)
+        realUser = participants.participants[0] // First participant is usually the current user
+        console.log('🎯 Current Discord user identified:', {
+          id: realUser.id,
+          username: realUser.username,
+          discriminator: realUser.discriminator,
+          avatar: realUser.avatar
+        })
         
-        // Validate we have real Discord user data
-        if (!realUser.id || realUser.id.length < 10 || realUser.id === '1234567890' || realUser.username === 'ActivityUser') {
-          throw new Error('CRITICAL: Got fake/demo user data instead of real Discord user')
+        // Validate we have real Discord user data (not demo/fake)
+        if (!realUser.id || realUser.id.length < 15 || realUser.username === 'DiscordUser' || realUser.username === 'ActivityUser') {
+          console.error('❌ Got fake/demo user data:', realUser)
+          throw new Error('Received fake user data instead of real Discord user. Check Discord Application configuration.')
         }
         
-        // Step 1: Get authorization from Discord (for API access)
-        const authCode = await discordSdk.commands.authorize({
+        console.log('✅ REAL Discord user confirmed - ID length:', realUser.id.length)
+        
+      } catch (participantsError) {
+        console.error('❌ Failed to get participants:', participantsError.message)
+        throw new Error(`Cannot access Discord Activity users: ${participantsError.message}`)
+      }
+      
+      // STEP 2: Optional OAuth2 for additional permissions (only if needed)
+      console.log('🔄 STEP 2: Optional OAuth2 for API access permissions...')
+      let authCode = null
+      
+      try {
+        // Only do OAuth2 if we need additional API permissions
+        const authResult = await discordSdk.commands.authorize({
           client_id: discordSdk.clientId,
           response_type: 'code',
           state: '',
-          scope: 'identify rpc.activities.write'
+          scope: 'identify'
         })
-        console.log('✅ Method 0: Discord authorization successful - Code:', authCode.code?.substring(0, 10) + '...')
+        authCode = authResult.code
+        console.log('✅ OAuth2 authorization successful for API access')
         
-        // Step 2: Use Discord Activity built-in user identification
-        console.log('🔄 Method 0: Extracting real user context from Discord Activity...')
-        
-        // Get all available Discord Activity context
-        const urlParams = new URLSearchParams(window.location.search)
-        const instanceId = urlParams.get('instance_id')
-        const guildId = urlParams.get('guild_id') 
-        const channelId = urlParams.get('channel_id')
-        const launchId = urlParams.get('launch_id')
-        
-        console.log('🔍 Method 0: Activity context:', { instanceId, guildId, channelId, launchId })
-        
-        // Step 3: Try to get additional context from Discord SDK
-        let channelInfo = null
-        let guildInfo = null
-        
-        try {
-          channelInfo = await discordSdk.commands.getChannel()
-          console.log('✅ Method 0: Channel info:', channelInfo)
-        } catch (e) {
-          console.warn('⚠️ Method 0: Could not get channel info:', e.message)
-        }
-        
-        // Step 4: Get participants to find the current user
-        try {
-          const participants = await discordSdk.commands.getInstanceConnectedParticipants()
-          console.log('✅ Method 0: Participants after auth:', participants)
-          
-          if (participants && participants.participants && participants.participants.length > 0) {
-            // Use the first participant as the current user
-            const currentUser = participants.participants[0]
-            console.log('✅ Method 0: Found current user from participants:', currentUser)
-            
-            // Use REAL Discord user data directly from participants
-            authResult = {
-              user: {
-                id: realUser.id,
-                username: realUser.username,
-                discriminator: realUser.discriminator || '0001',
-                avatar: realUser.avatar,
-                global_name: realUser.global_name || realUser.username,
-                bot: realUser.bot || false,
-                avatar_decoration_data: realUser.avatar_decoration_data || null,
-                guild_id: guildId,
-                channel_id: channelId,
-                instance_id: instanceId
-              },
-              access_token: null,
-              authorization_code: authCode.code,
-              method: 'discord_activity_real_user',
-              authenticated: true,
-              participants_count: preAuthParticipants.participants.length,
-              real_user_confirmed: true
-            }
-            
-            console.log('✅ Method 0: Authentication successful with participant data!')
-            
-          } else {
-            throw new Error('No participants found after authentication')
-          }
-        } catch (participantsError) {
-          console.warn('⚠️ Method 0: Participants method failed:', participantsError.message)
-          
-          // Fallback: Create user from available context
-          console.log('🔄 Method 0: Using fallback user creation from Activity context...')
-          
-          // Extract user ID from instance ID or use guild-based ID
-          const userId = instanceId ? instanceId.split('-')[1] || instanceId : `user_${guildId}_${Date.now()}`
-          
-          authResult = {
-            user: {
-              id: userId,
-              username: channelInfo?.name ? `${channelInfo.name} Member` : 'Activity User',
-              discriminator: '0000', 
-              avatar: null,
-              global_name: channelInfo?.name ? `Member of ${channelInfo.name}` : 'Discord Activity User',
-              guild_id: guildId,
-              channel_id: channelId,
-              instance_id: instanceId
-            },
-            access_token: null,
-            authorization_code: authCode.code,
-            method: 'discord_activity_context',
-            authenticated: true,
-            fallback: true
-          }
-          
-          console.log('✅ Method 0: Fallback authentication successful!')
-        }
-      } catch (error0) {
-        console.warn('⚠️ Method 0 failed:', error0.message)
-        
-        // Method 1: Try authenticate without access_token parameter
-        try {
-          console.log('🔄 Method 1: authenticate() basic')
-          authResult = await discordSdk.commands.authenticate({
-            scope: ['identify', 'rpc.activities.write']
-          })
-          console.log('✅ Method 1 successful:', authResult)
-        } catch (error2) {
-          console.warn('⚠️ Method 2 failed:', error2)
-          
-          // Method 3: Try with just identify scope
-          try {
-            console.log('🔄 Method 3: authenticate() with identify only')
-            authResult = await discordSdk.commands.authenticate({
-              scope: ['identify']
-            })
-            console.log('✅ Method 3 successful:', authResult)
-          } catch (error3) {
-            console.warn('⚠️ Method 3 failed:', error3)
-            
-            // Method 4: Try authorize as fallback
-            try {
-              console.log('🔄 Method 4: authorize() fallback')
-              const authorizeResult = await discordSdk.commands.authorize({
-                client_id: discordSdk.clientId,
-                response_type: 'code',
-                state: '',
-                scope: 'identify rpc.activities.write'
-              })
-              console.log('✅ Method 4 authorize successful:', authorizeResult)
-              
-              if (authorizeResult.code) {
-                console.log('🔄 Exchanging code for user token...')
-                try {
-                  // Exchange code for token
-                  const tokenResponse = await fetch(buildApiUrl('/api/auth/discord'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: authorizeResult.code })
-                  })
-                  
-                  console.log('🔍 Token response status:', tokenResponse.status)
-                  const responseText = await tokenResponse.text()
-                  console.log('🔍 Token response body:', responseText)
-                  
-                  if (tokenResponse.ok) {
-                    const tokenData = JSON.parse(responseText)
-                    if (tokenData.success) {
-                      console.log('✅ Token exchange successful:', tokenData)
-                      authResult = tokenData
-                    } else {
-                      console.error('❌ Token exchange failed:', tokenData.error)
-                      throw new Error(`Token exchange failed: ${tokenData.error}`)
-                    }
-                  } else {
-                    throw new Error(`Token exchange HTTP error: ${tokenResponse.status} - ${responseText}`)
-                  }
-                } catch (exchangeError) {
-                  console.error('💥 Code exchange failed:', exchangeError)
-                  // Fall back to just using the authorize result without token exchange
-                  console.log('🔄 Falling back to authorize result without token exchange')
-                  authResult = { user: null, access_token: null, code: authorizeResult.code }
-                }
-              } else {
-                throw new Error('No authorization code received')
-              }
-            } catch (error4) {
-              console.error('💥 All authentication methods failed:', {
-                error1: { message: error1.message, code: (error1 as any).code, stack: error1.stack?.substring(0, 200) },
-                error2: { message: error2.message, code: (error2 as any).code, stack: error2.stack?.substring(0, 200) },
-                error3: { message: error3.message, code: (error3 as any).code, stack: error3.stack?.substring(0, 200) },
-                error4: { message: error4.message, code: (error4 as any).code, stack: error4.stack?.substring(0, 200) }
-              })
-              
-              // Try one more desperate attempt - just get user info if available
-              console.log('🔄 Final attempt: Check if user is already available from SDK...')
-              try {
-                const currentUser = await discordSdk.commands.getUser()
-                if (currentUser) {
-                  console.log('✅ Found current user without authentication:', currentUser)
-                  authResult = { user: currentUser, access_token: null }
-                } else {
-                  throw new Error(`All 5 authentication methods failed. Errors: ${error1.message} | ${error2.message} | ${error3.message} | ${error4.message}`)
-                }
-              } catch (getUserError) {
-                console.error('💥 Even getUser() failed:', getUserError)
-                throw new Error(`All authentication methods failed. Most likely cause: ${error1.message}`)
-              }
-            }
-          }
-        }
+      } catch (oauthError) {
+        console.warn('⚠️ OAuth2 failed, but Activity user data is still valid:', oauthError.message)
+        // OAuth2 failure is OK - we still have the real user from participants
       }
       
-      if (!authResult) {
-        throw new Error('Authentication failed - no result received')
-      }
-
-      console.log('✅ Discord authentication successful:', {
-        hasUser: !!authResult.user,
-        hasAccessToken: !!authResult.access_token,
-        method: authResult.code ? 'OAuth2 exchange' : 'Direct authenticate'
-      })
-
-      // Extract user and token from auth result
-      let discordUser = authResult.user
-      const access_token = authResult.access_token
+      // STEP 3: Extract Activity context
+      const urlParams = new URLSearchParams(window.location.search)
+      const instanceId = urlParams.get('instance_id')
+      const guildId = urlParams.get('guild_id') 
+      const channelId = urlParams.get('channel_id')
       
-      // If we don't have user data, try multiple methods to get it
-      if (!discordUser) {
-        console.log('🔄 No user data from auth result. Trying alternative methods...')
-        console.log('🔍 Auth result details:', { 
-          hasUser: !!authResult.user, 
-          hasCode: !!authResult.code, 
-          hasAccessToken: !!authResult.access_token,
-          keys: Object.keys(authResult || {})
-        })
-        
-        // Method 1: Try getInstanceConnectedParticipants() now that we're authenticated
-        try {
-          console.log('🔄 Method 1: Getting user from participants (after auth)...')
-          const participantsData = await discordSdk.commands.getInstanceConnectedParticipants()
-          console.log('✅ Participants data (post-auth):', JSON.stringify(participantsData, null, 2))
-          
-          if (participantsData && participantsData.participants && participantsData.participants.length > 0) {
-            // Find the current user (usually the first one)
-            const currentUser = participantsData.participants[0]
-            console.log('✅ Method 1 success - Found user in participants:', JSON.stringify(currentUser, null, 2))
-            
-            // Validate the user object has required Discord user fields
-            if (currentUser && currentUser.id && currentUser.username) {
-              console.log('✅ Method 1 - Valid user object found with ID and username')
-              discordUser = currentUser
-            } else {
-              console.warn('⚠️ Method 1 - Participant found but missing user fields:', currentUser)
-            }
-          } else {
-            console.warn('⚠️ Method 1 - No participants found even after authentication')
-          }
-        } catch (participantsError) {
-          console.warn('⚠️ Method 1 failed - participants error (post-auth):', participantsError)
-        }
-        
-        // Method 2: Try getUser() if we have an auth result (we know this will fail but for completeness)
-        if (!discordUser && (authResult.code || authResult.access_token)) {
-          try {
-            console.log('🔄 Method 2: Getting user via getUser()...')
-            discordUser = await discordSdk.commands.getUser()
-            console.log('✅ Method 2 success - Got user data via getUser():', discordUser)
-          } catch (getUserError) {
-            console.warn('⚠️ Method 2 failed - getUser() error:', getUserError)
-          }
-        }
-        
-        // Method 3: Try getting instance participants again (duplicate method - can remove later)
-        if (!discordUser) {
-          try {
-            console.log('🔄 Method 3: Getting participants (duplicate check)...')
-            const instanceData = await discordSdk.commands.getInstanceConnectedParticipants()
-            console.log('✅ Instance participants (duplicate):', instanceData)
-            
-            // Sometimes the current user is in the participants
-            if (instanceData.participants && instanceData.participants.length > 0) {
-              // Look for the current user (they're usually first or have a special flag)
-              discordUser = instanceData.participants[0] // Fallback to first participant
-              console.log('✅ Method 2 success - Using participant as user:', discordUser)
-            }
-          } catch (participantsError) {
-            console.warn('⚠️ Method 2 failed - participants error:', participantsError)
-          }
-        }
-        
-        // Method 3: Try to get user info directly from Discord SDK instance
-        if (!discordUser && discordSdk) {
-          try {
-            console.log('🔄 Method 3: Getting user from Discord SDK instance...')
-            // Check if user info is available in the SDK itself
-            if (discordSdk.user) {
-              discordUser = discordSdk.user
-              console.log('✅ Method 3a success - Got user from SDK.user:', discordUser)
-            } else if ((discordSdk as any).instanceConnectedParticipants) {
-              // Try to get from instance participants
-              const participants = await discordSdk.commands.getInstanceConnectedParticipants()
-              if (participants && participants.participants && participants.participants.length > 0) {
-                discordUser = participants.participants[0]
-                console.log('✅ Method 3b success - Got user from participants:', discordUser)
-              }
-            } else {
-              console.log('⚠️ Method 3 - No user data available in SDK')
-            }
-          } catch (method3Error) {
-            console.warn('⚠️ Method 3 failed:', method3Error)
-          }
-        }
-        
-        // Method 4: Create minimal user object ONLY as last resort
-        if (!discordUser && (authResult.code || authResult.access_token)) {
-          console.log('🔄 Method 4: Creating minimal user from Activity context (LAST RESORT)...')
-          discordUser = {
-            id: 'activity_user_' + Date.now(), // Temporary ID
-            username: 'DiscordUser',
-            discriminator: '0000',
-            avatar: null,
-            global_name: 'Discord User'
-          }
-          console.log('⚠️ Method 4 fallback - Created minimal user object:', discordUser)
-        }
+      console.log('🔍 Activity context:', { instanceId, guildId, channelId })
+      
+      // STEP 4: Get channel info if available
+      let channelInfo = null
+      try {
+        channelInfo = await discordSdk.commands.getChannel()
+        console.log('✅ Channel info:', channelInfo)
+      } catch (e) {
+        console.warn('⚠️ Could not get channel info:', e.message)
       }
       
-      if (!discordUser) {
-        console.error('💥 All user data methods failed. Auth result:', authResult)
-        throw new Error('No user data received from Discord authentication. Check console for details.')
-      }
-
-      // Use the user data from authentication
+      // STEP 5: Create final user object with REAL Discord data
       const userData = {
-        id: discordUser.id,
-        username: discordUser.username,
-        discriminator: discordUser.discriminator,
-        avatar: discordUser.avatar,
-        global_name: discordUser.global_name,
-        bot: discordUser.bot ?? false,
-        avatar_decoration_data: discordUser.avatar_decoration_data ?? null
+        id: realUser.id,
+        username: realUser.username,
+        discriminator: realUser.discriminator || '0001',
+        avatar: realUser.avatar,
+        global_name: realUser.global_name || realUser.username,
+        bot: realUser.bot || false,
+        avatar_decoration_data: realUser.avatar_decoration_data || null
       }
-
-      console.log('👤 Setting authenticated user in context:', userData.username, 'ID:', userData.id)
+      
+      console.log('👤 Setting authenticated REAL Discord user:', userData.username, 'ID:', userData.id)
       setUser(userData)
-      console.log('✅ User context updated successfully')
+      
+      // Optional: Set channel data
+      if (channelInfo) {
+        setChannel(channelInfo)
+      }
+      
+      console.log('✅ Discord Activity authentication completed successfully!')
+      console.log('🎉 Real user authenticated:', {
+        id: userData.id,
+        username: userData.username,
+        participantsCount: participants.participants.length,
+        hasOAuth2: !!authCode
+      })
 
       // Optional: Sync with server for app-specific data (don't block authentication if this fails)
       try {
@@ -426,7 +170,6 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${access_token}`,
             'X-Discord-User-ID': userData.id,
             'X-Activity-Instance': instanceId || 'unknown'
           },
@@ -434,7 +177,7 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           credentials: 'omit',
           body: JSON.stringify({ 
             user: userData, 
-            discord_access_token: access_token,
+            discord_access_token: null, // We don't have OAuth2 token, but that's OK
             activity_context: {
               guild_id: guildId,
               channel_id: channelId,
@@ -458,21 +201,10 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         console.warn('💡 This is OK - Discord Activity will work without server sync')
       }
 
-      // Get channel info if available
-      try {
-        if (discordSdk.commands.getChannel) {
-          const channelData = await discordSdk.commands.getChannel()
-          console.log('📍 Channel data:', channelData)
-          setChannel(channelData)
-        }
-      } catch (channelError) {
-        console.warn('⚠️ Could not get channel info:', channelError)
-      }
-
       // Store authentication state
       localStorage.setItem('discord_authenticated', 'true')
       localStorage.setItem('discord_user', JSON.stringify(userData))
-      localStorage.setItem('discord_access_token', access_token)
+      localStorage.setItem('discord_access_token', authCode || 'activity_user')
 
       console.log('🎉 Authentication completed successfully!')
 
