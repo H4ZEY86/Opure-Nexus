@@ -68,8 +68,21 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       // Try the standard Discord Activity authentication with different approaches
       let authResult = null
       
-      // Method 1: Try authenticate with access_token scope
+      // Method 0: Check if user is already available (sometimes no auth needed)
       try {
+        console.log('🔄 Method 0: Check if user already available without auth')
+        const existingUser = await discordSdk.commands.getUser()
+        if (existingUser) {
+          console.log('✅ Method 0 successful - User already available:', existingUser)
+          authResult = { user: existingUser, access_token: null }
+        } else {
+          throw new Error('No existing user')
+        }
+      } catch (error0) {
+        console.warn('⚠️ Method 0 failed:', error0.message)
+        
+        // Method 1: Try authenticate with access_token scope
+        try {
         console.log('🔄 Method 1: authenticate() with access_token')
         authResult = await discordSdk.commands.authenticate({
           scope: ['identify', 'rpc.activities.write'],
@@ -102,40 +115,75 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
             // Method 4: Try authorize as fallback
             try {
               console.log('🔄 Method 4: authorize() fallback')
-              authResult = await discordSdk.commands.authorize({
+              const authorizeResult = await discordSdk.commands.authorize({
                 client_id: discordSdk.clientId,
                 response_type: 'code',
                 state: '',
                 scope: 'identify rpc.activities.write'
               })
-              console.log('✅ Method 4 successful:', authResult)
+              console.log('✅ Method 4 authorize successful:', authorizeResult)
               
-              if (authResult.code) {
-                // Exchange code for token
-                const tokenResponse = await fetch(buildApiUrl('/api/auth/discord'), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code: authResult.code })
-                })
-                
-                if (tokenResponse.ok) {
-                  const tokenData = await tokenResponse.json()
-                  if (tokenData.success) {
-                    authResult = tokenData
+              if (authorizeResult.code) {
+                console.log('🔄 Exchanging code for user token...')
+                try {
+                  // Exchange code for token
+                  const tokenResponse = await fetch(buildApiUrl('/api/auth/discord'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: authorizeResult.code })
+                  })
+                  
+                  console.log('🔍 Token response status:', tokenResponse.status)
+                  const responseText = await tokenResponse.text()
+                  console.log('🔍 Token response body:', responseText)
+                  
+                  if (tokenResponse.ok) {
+                    const tokenData = JSON.parse(responseText)
+                    if (tokenData.success) {
+                      console.log('✅ Token exchange successful:', tokenData)
+                      authResult = tokenData
+                    } else {
+                      console.error('❌ Token exchange failed:', tokenData.error)
+                      throw new Error(`Token exchange failed: ${tokenData.error}`)
+                    }
+                  } else {
+                    throw new Error(`Token exchange HTTP error: ${tokenResponse.status} - ${responseText}`)
                   }
+                } catch (exchangeError) {
+                  console.error('💥 Code exchange failed:', exchangeError)
+                  // Fall back to just using the authorize result without token exchange
+                  console.log('🔄 Falling back to authorize result without token exchange')
+                  authResult = { user: null, access_token: null, code: authorizeResult.code }
                 }
+              } else {
+                throw new Error('No authorization code received')
               }
             } catch (error4) {
               console.error('💥 All authentication methods failed:', {
-                error1: error1.message,
-                error2: error2.message, 
-                error3: error3.message,
-                error4: error4.message
+                error1: { message: error1.message, code: (error1 as any).code, stack: error1.stack?.substring(0, 200) },
+                error2: { message: error2.message, code: (error2 as any).code, stack: error2.stack?.substring(0, 200) },
+                error3: { message: error3.message, code: (error3 as any).code, stack: error3.stack?.substring(0, 200) },
+                error4: { message: error4.message, code: (error4 as any).code, stack: error4.stack?.substring(0, 200) }
               })
-              throw new Error('All authentication methods failed')
+              
+              // Try one more desperate attempt - just get user info if available
+              console.log('🔄 Final attempt: Check if user is already available from SDK...')
+              try {
+                const currentUser = await discordSdk.commands.getUser()
+                if (currentUser) {
+                  console.log('✅ Found current user without authentication:', currentUser)
+                  authResult = { user: currentUser, access_token: null }
+                } else {
+                  throw new Error(`All 5 authentication methods failed. Errors: ${error1.message} | ${error2.message} | ${error3.message} | ${error4.message}`)
+                }
+              } catch (getUserError) {
+                console.error('💥 Even getUser() failed:', getUserError)
+                throw new Error(`All authentication methods failed. Most likely cause: ${error1.message}`)
+              }
             }
           }
         }
+      }
       }
       
       if (!authResult) {
@@ -149,8 +197,19 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       })
 
       // Extract user and token from auth result
-      const discordUser = authResult.user
+      let discordUser = authResult.user
       const access_token = authResult.access_token
+      
+      // If we don't have user data but have a code, try to get user info
+      if (!discordUser && authResult.code) {
+        console.log('🔄 No user data from auth, trying to get current user...')
+        try {
+          discordUser = await discordSdk.commands.getUser()
+          console.log('✅ Got user data via getUser():', discordUser)
+        } catch (getUserError) {
+          console.warn('⚠️ Could not get user data:', getUserError)
+        }
+      }
       
       if (!discordUser) {
         throw new Error('No user data received from Discord authentication')
