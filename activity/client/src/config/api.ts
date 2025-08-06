@@ -81,8 +81,9 @@ export const discordActivityFetch = async (endpoint: string, options: RequestIni
   } catch (error) {
     console.error(`❌ Discord Activity fetch failed for ${endpoint}:`, error)
     
-    // Return mock data for development/fallback
-    return getMockResponse(endpoint, options)
+    // DO NOT USE MOCK DATA - This was causing fake user authentication
+    // Let the error bubble up so we can fix the real API issues
+    throw error
   }
 }
 

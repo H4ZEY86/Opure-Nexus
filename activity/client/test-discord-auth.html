@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Activity Authentication Test</title>
+    <script src="https://discord.com/api/v10/embedded-app-sdk"></script>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: #222;
+        }
+        .success { border-color: #00ff00; color: #00ff00; }
+        .error { border-color: #ff0000; color: #ff0000; }
+        .warning { border-color: #ffaa00; color: #ffaa00; }
+        button {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        button:hover { background: #555; }
+        pre { 
+            background: #111; 
+            padding: 10px; 
+            border-radius: 3px; 
+            overflow-x: auto; 
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Discord Activity Authentication Test</h1>
+        <p>This page tests the fixed authentication system</p>
+
+        <div id="environment-check" class="test-section">
+            <h2>Environment Check</h2>
+            <div id="env-results">Checking...</div>
+        </div>
+
+        <div id="sdk-test" class="test-section">
+            <h2>Discord SDK Test</h2>
+            <button onclick="initializeSDK()">Initialize SDK</button>
+            <div id="sdk-results"></div>
+        </div>
+
+        <div id="auth-test" class="test-section">
+            <h2>Authentication Test</h2>
+            <button onclick="testAuthentication()">Test REAL User Authentication</button>
+            <div id="auth-results"></div>
+        </div>
+
+        <div id="api-test" class="test-section">
+            <h2>API Connectivity Test</h2>
+            <button onclick="testAPI()">Test API Endpoints</button>
+            <div id="api-results"></div>
+        </div>
+
+        <div id="params-test" class="test-section">
+            <h2>URL Parameters Test</h2>
+            <div id="params-results"></div>
+        </div>
+    </div>
+
+    <script>
+        let sdk = null;
+
+        // Environment check
+        function checkEnvironment() {
+            const env = {
+                inIframe: window.self !== window.top,
+                discordReferrer: document.referrer.includes('discord.com'),
+                hasDiscordQuery: window.location.search.includes('frame_id') || window.location.search.includes('instance_id'),
+                url: window.location.href,
+                search: window.location.search,
+                hostname: window.location.hostname,
+                userAgent: navigator.userAgent.substring(0, 100)
+            };
+
+            const isLikelyInDiscord = env.inIframe || env.discordReferrer || env.hasDiscordQuery || 
+                                     env.hostname === 'www.opure.uk' || env.hostname === 'opure.uk';
+
+            const results = document.getElementById('env-results');
+            const section = document.getElementById('environment-check');
+            
+            let html = '<pre>';
+            html += `In iFrame: ${env.inIframe ? '✅' : '❌'}\n`;
+            html += `Discord Referrer: ${env.discordReferrer ? '✅' : '❌'}\n`;
+            html += `Discord Query Params: ${env.hasDiscordQuery ? '✅' : '❌'}\n`;
+            html += `Likely in Discord: ${isLikelyInDiscord ? '✅' : '❌'}\n`;
+            html += `URL: ${env.url}\n`;
+            html += `Search Params: ${env.search || 'none'}\n`;
+            html += `Hostname: ${env.hostname}\n`;
+            html += '</pre>';
+
+            results.innerHTML = html;
+            section.className = isLikelyInDiscord ? 'test-section success' : 'test-section error';
+        }
+
+        // URL Parameters test
+        function checkURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            const paramObj = {};
+            for (const [key, value] of params) {
+                paramObj[key] = value;
+            }
+
+            const results = document.getElementById('params-results');
+            let html = '<h3>Current URL Parameters:</h3><pre>';
+            
+            if (Object.keys(paramObj).length > 0) {
+                html += JSON.stringify(paramObj, null, 2);
+            } else {
+                html += 'No parameters found';
+            }
+            
+            html += '</pre>';
+            results.innerHTML = html;
+        }
+
+        // SDK initialization
+        async function initializeSDK() {
+            const results = document.getElementById('sdk-results');
+            const section = document.getElementById('sdk-test');
+            
+            try {
+                results.innerHTML = '<p>Initializing Discord SDK...</p>';
+                
+                sdk = new DiscordSDK('1388207626944249856');
+                
+                results.innerHTML = '<p>Waiting for SDK ready...</p>';
+                await sdk.ready();
+                
+                results.innerHTML = '<pre>✅ SDK Ready!\n';
+                results.innerHTML += `Client ID: ${sdk.clientId}\n`;
+                results.innerHTML += `Available commands: ${Object.keys(sdk.commands || {}).join(', ')}</pre>`;
+                
+                section.className = 'test-section success';
+                
+            } catch (error) {
+                results.innerHTML = `<pre>❌ SDK Error: ${error.message}</pre>`;
+                section.className = 'test-section error';
+            }
+        }
+
+        // Authentication test
+        async function testAuthentication() {
+            const results = document.getElementById('auth-results');
+            const section = document.getElementById('auth-test');
+            
+            if (!sdk) {
+                results.innerHTML = '<p>❌ Please initialize SDK first</p>';
+                return;
+            }
+
+            try {
+                results.innerHTML = '<p>Testing REAL Discord Activity authentication...</p>';
+                
+                // Step 1: Get participants FIRST (this should give us real user data)
+                results.innerHTML += '<p>🔄 Getting participants...</p>';
+                const participants = await sdk.commands.getInstanceConnectedParticipants();
+                
+                let html = '<pre>✅ Participants result:\n';
+                html += JSON.stringify(participants, null, 2);
+                html += '</pre>';
+                
+                if (participants?.participants?.length > 0) {
+                    const realUser = participants.participants[0];
+                    
+                    // Validate this is REAL Discord user data
+                    if (realUser.id && realUser.id.length >= 10 && 
+                        realUser.id !== '1234567890' && 
+                        realUser.username !== 'ActivityUser' &&
+                        realUser.username !== 'Activity User') {
+                        
+                        html += '<div style="color: #00ff00; font-weight: bold;">✅ REAL DISCORD USER DETECTED!</div>';
+                        html += `<div>Real User ID: ${realUser.id}</div>`;
+                        html += `<div>Real Username: ${realUser.username}</div>`;
+                        html += `<div>Discriminator: ${realUser.discriminator || 'N/A'}</div>`;
+                        html += `<div>Global Name: ${realUser.global_name || 'N/A'}</div>`;
+                        
+                        section.className = 'test-section success';
+                    } else {
+                        html += '<div style="color: #ff0000; font-weight: bold;">❌ FAKE/DEMO USER DATA DETECTED!</div>';
+                        html += `<div>Fake ID: ${realUser.id}</div>`;
+                        html += `<div>Fake Username: ${realUser.username}</div>`;
+                        section.className = 'test-section error';
+                    }
+                } else {
+                    html += '<div style="color: #ff0000;">❌ No participants found</div>';
+                    section.className = 'test-section error';
+                }
+                
+                // Step 2: Test authorize
+                try {
+                    results.innerHTML = html + '<p>🔄 Testing authorize...</p>';
+                    const authResult = await sdk.commands.authorize({
+                        client_id: sdk.clientId,
+                        response_type: 'code',
+                        state: '',
+                        scope: 'identify rpc.activities.write'
+                    });
+                    
+                    html += '<div>✅ Authorization successful</div>';
+                    html += `<div>Code received: ${authResult.code ? 'YES' : 'NO'}</div>`;
+                    
+                } catch (authError) {
+                    html += `<div style="color: #ffaa00;">⚠️ Authorization failed: ${authError.message}</div>`;
+                }
+                
+                results.innerHTML = html;
+                
+            } catch (error) {
+                results.innerHTML = `<pre>❌ Authentication Error: ${error.message}\n${error.stack}</pre>`;
+                section.className = 'test-section error';
+            }
+        }
+
+        // API test
+        async function testAPI() {
+            const results = document.getElementById('api-results');
+            const section = document.getElementById('api-test');
+            
+            results.innerHTML = '<p>Testing API connectivity...</p>';
+            
+            const endpoints = [
+                { url: 'https://api.opure.uk/health', method: 'GET', name: 'Health Check' },
+                { url: 'https://api.opure.uk/api/auth/test', method: 'GET', name: 'Auth Test' },
+                { url: 'https://api.opure.uk/', method: 'GET', name: 'API Root' }
+            ];
+            
+            let html = '<div>API Test Results:</div><pre>';
+            let allSuccess = true;
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint.url, {
+                        method: endpoint.method,
+                        mode: 'cors',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const text = await response.text();
+                    html += `✅ ${endpoint.name} (${response.status}): ${text.substring(0, 100)}...\n`;
+                } catch (error) {
+                    html += `❌ ${endpoint.name}: ${error.message}\n`;
+                    allSuccess = false;
+                }
+            }
+            
+            html += '</pre>';
+            results.innerHTML = html;
+            section.className = allSuccess ? 'test-section success' : 'test-section warning';
+        }
+
+        // Run initial checks
+        checkEnvironment();
+        checkURLParams();
+    </script>
+</body>
+</html>

@@ -68,11 +68,29 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       // Try the standard Discord Activity authentication with different approaches
       let authResult = null
       
-      // Method 0: Discord Activity direct authentication (bypass external API)
+      // Method 0: Discord Activity REAL USER authentication (NO FALLBACKS)
       try {
-        console.log('🔄 Method 0: Discord Activity direct authentication')
+        console.log('🔄 Method 0: REAL Discord Activity authentication - no mock data allowed')
         
-        // Step 1: Get authorization from Discord
+        // CRITICAL: Get real participants FIRST to ensure we have real user data
+        console.log('🔄 Getting REAL participants before authorization...')
+        const preAuthParticipants = await discordSdk.commands.getInstanceConnectedParticipants()
+        console.log('✅ Pre-auth participants:', JSON.stringify(preAuthParticipants, null, 2))
+        
+        if (!preAuthParticipants?.participants?.length) {
+          throw new Error('CRITICAL: No participants found - Activity not properly launched')
+        }
+        
+        // Get the current user from participants (this is the REAL user)
+        const realUser = preAuthParticipants.participants[0]
+        console.log('🎯 REAL USER IDENTIFIED:', JSON.stringify(realUser, null, 2))
+        
+        // Validate we have real Discord user data
+        if (!realUser.id || realUser.id.length < 10 || realUser.id === '1234567890' || realUser.username === 'ActivityUser') {
+          throw new Error('CRITICAL: Got fake/demo user data instead of real Discord user')
+        }
+        
+        // Step 1: Get authorization from Discord (for API access)
         const authCode = await discordSdk.commands.authorize({
           client_id: discordSdk.clientId,
           response_type: 'code',
@@ -114,23 +132,26 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
             const currentUser = participants.participants[0]
             console.log('✅ Method 0: Found current user from participants:', currentUser)
             
-            // Create proper user object with real Discord data
+            // Use REAL Discord user data directly from participants
             authResult = {
               user: {
-                id: currentUser.id || guildId + '_user',
-                username: currentUser.username || channelInfo?.name + ' User' || 'Discord User',
-                discriminator: currentUser.discriminator || '0000',
-                avatar: currentUser.avatar || null,
-                global_name: currentUser.global_name || currentUser.username || 'Discord User',
+                id: realUser.id,
+                username: realUser.username,
+                discriminator: realUser.discriminator || '0001',
+                avatar: realUser.avatar,
+                global_name: realUser.global_name || realUser.username,
+                bot: realUser.bot || false,
+                avatar_decoration_data: realUser.avatar_decoration_data || null,
                 guild_id: guildId,
                 channel_id: channelId,
                 instance_id: instanceId
               },
               access_token: null,
               authorization_code: authCode.code,
-              method: 'discord_activity_participants',
+              method: 'discord_activity_real_user',
               authenticated: true,
-              participants_count: participants.participants.length
+              participants_count: preAuthParticipants.participants.length,
+              real_user_confirmed: true
             }
             
             console.log('✅ Method 0: Authentication successful with participant data!')
@@ -398,29 +419,43 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       setUser(userData)
       console.log('✅ User context updated successfully')
 
-      // Optional: Sync with server for app-specific data
+      // Optional: Sync with server for app-specific data (don't block authentication if this fails)
       try {
-        console.log('🔄 Syncing with server...')
+        console.log('🔄 Syncing with server for app-specific data...')
         const response = await fetch(buildApiUrl('/api/auth/activity-sync'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${access_token}`
+            'Authorization': `Bearer ${access_token}`,
+            'X-Discord-User-ID': userData.id,
+            'X-Activity-Instance': instanceId || 'unknown'
           },
-          body: JSON.stringify({ user: userData, discord_access_token: access_token })
+          mode: 'cors',
+          credentials: 'omit',
+          body: JSON.stringify({ 
+            user: userData, 
+            discord_access_token: access_token,
+            activity_context: {
+              guild_id: guildId,
+              channel_id: channelId,
+              instance_id: instanceId
+            }
+          })
         })
 
         if (response.ok) {
           const serverData = await response.json()
-          console.log('✅ Server sync successful')
+          console.log('✅ Server sync successful:', serverData)
           if (serverData.token) {
             localStorage.setItem('auth_token', serverData.token)
           }
         } else {
-          console.warn('⚠️ Server sync failed with status:', response.status)
+          const errorText = await response.text()
+          console.warn('⚠️ Server sync failed with status:', response.status, errorText)
         }
       } catch (serverError) {
-        console.warn('⚠️ Server sync failed, continuing with Discord-only auth:', serverError)
+        console.warn('⚠️ Server sync failed, Discord authentication still successful:', serverError)
+        console.warn('💡 This is OK - Discord Activity will work without server sync')
       }
 
       // Get channel info if available
@@ -485,7 +520,7 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
                                window.location.search.includes('instance_id')
         
         // Enhanced Discord context check - force authentication for production domain
-        const isProductionDomain = window.location.hostname === 'www.opure.uk'
+        const isProductionDomain = window.location.hostname === 'www.opure.uk' || window.location.hostname === 'opure.uk'
         const isLikelyInDiscord = inIframe || discordReferrer || hasDiscordQuery || isProductionDomain
         
         console.log('🔍 Environment check:', {
