@@ -2,6 +2,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Shield, ArrowRight, Zap } from 'lucide-react'
 import { useDiscord } from '../../hooks/useDiscord'
+import DebugOverlay from '../DebugOverlay'
 
 export default function AuthenticationPrompt() {
   const { authenticate, isLoading, error } = useDiscord()
@@ -154,6 +155,9 @@ export default function AuthenticationPrompt() {
           }}
           className="absolute -bottom-6 -left-6 w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full opacity-30"
         />
+        
+        {/* Debug Overlay for Authentication */}
+        <DebugOverlay />
       </motion.div>
 
     </div>

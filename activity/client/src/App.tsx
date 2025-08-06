@@ -14,6 +14,7 @@ import NotFound from './pages/NotFound'
 import { useDiscord } from './hooks/useDiscord'
 import LoadingScreen from './components/common/LoadingScreen'
 import AuthenticationPrompt from './components/auth/AuthenticationPrompt'
+import DebugOverlay from './components/DebugOverlay'
 
 const pageVariants = {
   initial: { opacity: 0, scale: 0.95, filter: 'blur(10px)' },
@@ -175,6 +176,9 @@ export default function App() {
             ))}
           </div>
         </nav>
+        
+        {/* Debug Overlay - Only in Discord Activity */}
+        <DebugOverlay />
       </div>
     </div>
   )
