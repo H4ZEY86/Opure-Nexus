@@ -5,10 +5,25 @@ export default async function handler(req, res) {
   console.log(`🚀 API Request: ${req.method} ${req.url}`)
   
   // Set CORS headers for Discord Activities
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  const allowedOrigins = [
+    'https://www.opure.uk',
+    'https://opure.uk',
+    'https://discord.com',
+    'https://activities.discord.com',
+    'https://1388207626944249856.discordsays.com',
+    'null' // For local development and some Discord Activity contexts
+  ]
+  
+  const origin = req.headers.origin
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*')
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin')
-  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Discord-User-ID, X-Activity-Instance')
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
   res.setHeader('X-Frame-Options', 'ALLOWALL')
   res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com;')
   
@@ -160,42 +175,53 @@ async function handleActivitySync(req, res) {
   try {
     console.log('🎮 Discord Activity sync request received')
     
-    const { user, discord_access_token } = req.body
+    const { user, discord_access_token, activity_context } = req.body
     
-    if (!user || !discord_access_token) {
-      console.error('❌ Missing user data or Discord access token')
+    if (!user) {
+      console.error('❌ Missing user data')
       return res.status(400).json({
         success: false,
-        error: 'User data and Discord access token are required'
+        error: 'User data is required'
       })
     }
-
-    // Verify the Discord access token
-    console.log('🔍 Verifying Discord access token...')
-    const discordResponse = await fetch('https://discord.com/api/v10/users/@me', {
-      headers: {
-        Authorization: `Bearer ${discord_access_token}`,
-      },
+    
+    console.log('🔍 Activity sync request:', {
+      user: { id: user.id, username: user.username },
+      hasAccessToken: !!discord_access_token,
+      activityContext: activity_context
     })
 
-    if (!discordResponse.ok) {
-      console.error('❌ Discord token verification failed')
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid Discord access token'
-      })
-    }
+    // Verify the Discord access token if provided
+    let discordUser = null
+    if (discord_access_token) {
+      try {
+        console.log('🔍 Verifying Discord access token...')
+        const discordResponse = await fetch('https://discord.com/api/v10/users/@me', {
+          headers: {
+            Authorization: `Bearer ${discord_access_token}`,
+          },
+        })
 
-    const discordUser = await discordResponse.json()
-    console.log('✅ Discord token verified for user:', discordUser.username)
+        if (discordResponse.ok) {
+          discordUser = await discordResponse.json()
+          console.log('✅ Discord token verified for user:', discordUser.username)
 
-    // Verify user ID matches
-    if (discordUser.id !== user.id) {
-      console.error('❌ User ID mismatch')
-      return res.status(400).json({
-        success: false,
-        error: 'User ID mismatch'
-      })
+          // Verify user ID matches
+          if (discordUser.id !== user.id) {
+            console.error('❌ User ID mismatch')
+            return res.status(400).json({
+              success: false,
+              error: 'User ID mismatch between token and provided user'
+            })
+          }
+        } else {
+          console.warn('⚠️ Discord token verification failed, proceeding with Activity-only sync')
+        }
+      } catch (tokenError) {
+        console.warn('⚠️ Discord token verification error, proceeding with Activity-only sync:', tokenError.message)
+      }
+    } else {
+      console.log('💡 No Discord access token provided, using Activity-only sync')
     }
 
     // Create app-specific token
