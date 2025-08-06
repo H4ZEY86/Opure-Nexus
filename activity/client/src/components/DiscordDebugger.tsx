@@ -60,9 +60,19 @@ export const DiscordDebugger: React.FC = () => {
 
       {/* User Info */}
       {user && (
-        <div className="mb-3 p-2 bg-green-900/50 border border-green-600 rounded text-green-300">
+        <div className={`mb-3 p-2 border rounded ${
+          user.id.includes('activity_user_') || user.username === 'DiscordUser' 
+            ? 'bg-red-900/50 border-red-600 text-red-300' 
+            : 'bg-green-900/50 border-green-600 text-green-300'
+        }`}>
           <div className="font-bold">User:</div>
           <div>{user.username}#{user.discriminator}</div>
+          <div>ID: {user.id}</div>
+          {(user.id.includes('activity_user_') || user.username === 'DiscordUser') && (
+            <div className="mt-1 text-xs">
+              ⚠️ FAKE USER DATA - Launch through Discord Activity!
+            </div>
+          )}
         </div>
       )}
 
@@ -73,6 +83,23 @@ export const DiscordDebugger: React.FC = () => {
           <div>Referrer: {debugInfo.referrer || 'none'}</div>
           <div>URL: {debugInfo.url}</div>
           <div>UA: {debugInfo.userAgent}...</div>
+        </div>
+      </details>
+
+      {/* Critical Discord Activity Parameters */}
+      <details className="mb-3">
+        <summary className="cursor-pointer text-red-400 hover:text-red-300">🚨 Activity Parameters</summary>
+        <div className="mt-2 space-y-1 text-gray-300">
+          <div>Instance ID: {new URLSearchParams(window.location.search).get('instance_id') || '❌ MISSING'}</div>
+          <div>Guild ID: {new URLSearchParams(window.location.search).get('guild_id') || '❌ MISSING'}</div>
+          <div>Channel ID: {new URLSearchParams(window.location.search).get('channel_id') || '❌ MISSING'}</div>
+          <div>Launch ID: {new URLSearchParams(window.location.search).get('launch_id') || '❌ MISSING'}</div>
+          {!new URLSearchParams(window.location.search).get('instance_id') && (
+            <div className="p-2 bg-red-900/50 border border-red-600 rounded text-red-300 text-xs">
+              ⚠️ CRITICAL: Missing Discord Activity parameters!<br/>
+              You're accessing this wrong - launch through Discord Activity, not browser!
+            </div>
+          )}
         </div>
       </details>
 
