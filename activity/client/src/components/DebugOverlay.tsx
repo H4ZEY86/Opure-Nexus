@@ -191,6 +191,40 @@ export default function DebugOverlay() {
               RUN TESTS
             </button>
             <button
+              onClick={async () => {
+                if (!discordSdk) {
+                  setTestResults(prev => [...prev.slice(-5), 'No Discord SDK available'])
+                  return
+                }
+                
+                setTestResults(prev => [...prev.slice(-5), 'Testing DIRECT authentication...'])
+                
+                // Test direct authentication like the app does
+                try {
+                  console.log('🧪 DEBUG TEST: Direct authenticate() call')
+                  const authResult = await discordSdk.commands.authenticate({
+                    scope: ['identify', 'rpc.activities.write'],
+                    access_token: true
+                  })
+                  setTestResults(prev => [...prev.slice(-5), `Direct auth SUCCESS: ${JSON.stringify(authResult)}`])
+                  
+                  // Try participants after auth
+                  try {
+                    const participants = await discordSdk.commands.getInstanceConnectedParticipants()
+                    setTestResults(prev => [...prev.slice(-5), `Post-auth participants: ${JSON.stringify(participants)}`])
+                  } catch (e) {
+                    setTestResults(prev => [...prev.slice(-5), `Post-auth participants failed: ${e.message}`])
+                  }
+                } catch (e) {
+                  setTestResults(prev => [...prev.slice(-5), `Direct auth FAILED: ${e.message}`])
+                  console.error('🧪 DEBUG TEST: Auth failed:', e)
+                }
+              }}
+              className="bg-green-600 text-white px-2 py-1 rounded text-xs w-full"
+            >
+              TEST AUTH
+            </button>
+            <button
               onClick={() => setTestResults([])}
               className="bg-orange-600 text-white px-2 py-1 rounded text-xs w-full"
             >
