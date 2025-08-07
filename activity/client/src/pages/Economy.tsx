@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Coins, ShoppingCart, TrendingUp, Gift, Zap, Heart, Shield, Star } from 'lucide-react'
-import { useDiscord } from '../hooks/useDiscord'
+import { useDiscord } from '../contexts/DiscordContext'
 import { buildApiUrl } from '../config/api'
 
 interface UserEconomyData {

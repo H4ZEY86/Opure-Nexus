@@ -87,6 +87,10 @@ export default async function handler(req, res) {
       return handleAIChat(req, res)
     }
     
+    if (path.startsWith('/api/music/playlists/')) {
+      return handleUserPlaylists(req, res)
+    }
+    
     if (path.startsWith('/api/music/')) {
       return handleMusic(req, res)
     }
@@ -745,6 +749,41 @@ async function handleAIChat(req, res) {
   }
 }
 
+function handleUserPlaylists(req, res) {
+  const userId = req.url.split('/').pop().split('?')[0]
+  
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      error: 'User ID is required'
+    })
+  }
+
+  // Mock user playlists - in real implementation, fetch from bot database
+  const userPlaylists = [
+    {
+      id: `user-${userId}-favorites`,
+      name: `${userId}'s Favorites`,
+      thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg',
+      tracks: [
+        {
+          id: 'user-1',
+          title: 'User Favorite Song 1',
+          videoId: 'dQw4w9WgXcQ',
+          duration: '3:32',
+          thumbnail: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg'
+        }
+      ]
+    }
+  ]
+
+  return res.json({
+    success: true,
+    playlists: userPlaylists,
+    timestamp: new Date().toISOString()
+  })
+}
+
 function handleMusic(req, res) {
   const path = req.url.split('?')[0]
   
@@ -787,6 +826,6 @@ function handleMusic(req, res) {
   
   return res.status(404).json({
     error: 'Music endpoint not found',
-    available: ['/api/music/queue', '/api/music/now-playing']
+    available: ['/api/music/queue', '/api/music/now-playing', '/api/music/playlists/:userId']
   })
 }
