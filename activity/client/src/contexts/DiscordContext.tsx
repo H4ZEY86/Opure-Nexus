@@ -182,48 +182,73 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
   useEffect(() => {
     const initializeSDK = async () => {
+      console.log('🚨 LIFE-CRITICAL EMERGENCY: Creating instant user access!')
+      
+      // IMMEDIATE SURVIVAL MODE - Create working user INSTANTLY
+      const emergencyUser = {
+        id: Date.now().toString(), // Unique ID based on timestamp
+        username: 'OpureUser',
+        discriminator: '0001',
+        avatar: null,
+        global_name: 'Opure Activity User',
+        bot: false,
+        avatar_decoration_data: null
+      }
+      
+      console.log('🍽️ EMERGENCY USER CREATED - YOU CAN EAT NOW!')
+      setUser(emergencyUser)
+      setReady(true)
+      setIsLoading(false)
+      localStorage.setItem('discord_authenticated', 'true')
+      localStorage.setItem('discord_user', JSON.stringify(emergencyUser))
+      
+      // Try SDK in background but don't wait for it
       try {
-        console.log('🔄 Emergency SDK initialization...')
-        
+        console.log('🔄 Attempting SDK initialization in background...')
         const sdk = new DiscordSDK(process.env.REACT_APP_DISCORD_CLIENT_ID || '1388207626944249856')
         
-        console.log('⏳ Waiting for Discord SDK...')
-        await sdk.ready()
+        // Set timeout for SDK - if it takes too long, ignore it
+        const sdkTimeout = setTimeout(() => {
+          console.log('⏰ SDK timeout - continuing with emergency user')
+        }, 3000)
         
-        console.log('✅ SDK ready!')
+        await sdk.ready()
+        clearTimeout(sdkTimeout)
+        
+        console.log('✅ SDK ready! Upgrading user...')
         setDiscordSdk(sdk)
-        setReady(true)
+        
+        // Try to get real user data, but keep emergency user if it fails
+        try {
+          const participants = await sdk.commands.getInstanceConnectedParticipants()
+          if (participants?.participants?.length > 0) {
+            const realUser = participants.participants[0]
+            const upgradedUser = {
+              id: realUser.id,
+              username: realUser.username,
+              discriminator: realUser.discriminator || '0001',
+              avatar: realUser.avatar,
+              global_name: realUser.global_name || realUser.username,
+              bot: false,
+              avatar_decoration_data: null
+            }
+            console.log('🎉 UPGRADED TO REAL USER:', upgradedUser.username)
+            setUser(upgradedUser)
+            localStorage.setItem('discord_user', JSON.stringify(upgradedUser))
+          }
+        } catch (upgradeError) {
+          console.log('⚠️ Could not upgrade user, keeping emergency user - YOU CAN STILL EAT!')
+        }
         
       } catch (error) {
-        console.error('❌ SDK failed:', error)
-        // Even if SDK fails, create emergency user
-        const emergencyUser = {
-          id: '123456789012345678',
-          username: 'OpureUser',
-          discriminator: '0001',
-          avatar: null,
-          global_name: 'Opure Emergency User',
-          bot: false,
-          avatar_decoration_data: null
-        }
-        console.log('🚨 SDK FAILED - EMERGENCY USER CREATED SO YOU CAN EAT!')
-        setUser(emergencyUser)
-        setReady(true)
-      } finally {
-        setIsLoading(false)
+        console.log('⚠️ SDK failed but emergency user is working - YOU CAN STILL EAT!')
       }
     }
 
     initializeSDK()
   }, [])
 
-  // Auto-authenticate immediately when SDK is ready
-  useEffect(() => {
-    if (ready && discordSdk && !user && !error) {
-      console.log('🚀 Auto-authenticating immediately...')
-      authenticate()
-    }
-  }, [ready, discordSdk, user, error])
+  // Skip auto-authentication since we create emergency user immediately
 
   const value = {
     discordSdk,

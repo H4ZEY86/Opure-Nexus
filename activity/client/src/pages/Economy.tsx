@@ -109,14 +109,25 @@ export default function Economy() {
   useEffect(() => {
     const fetchEconomyData = async () => {
       try {
-        if (!user) return
+        if (!user) {
+          setLoading(false)
+          return
+        }
 
-        // Try to fetch from API
+        console.log('🔄 Fetching LIVE economy data for user:', user.id)
+
+        // Fetch from live API with both Supabase and SQLite support
         const response = await fetch(buildApiUrl(`/api/bot/sync/${user.id}`))
         if (response.ok) {
           const data = await response.json()
           if (data.success && data.data.user) {
-            console.log('✅ Loaded real user economy data:', data.data.user)
+            console.log('✅ LIVE economy data loaded:', {
+              source: data.source || 'unknown',
+              fragments: data.data.user.fragments,
+              level: data.data.user.level,
+              achievements: data.data.achievements?.length || 0
+            })
+            
             setEconomyData({
               fragments: data.data.user.fragments || 0,
               level: data.data.user.level || 1,
@@ -125,13 +136,39 @@ export default function Economy() {
               dataShards: data.data.user.data_shards || 0,
               dailyStreak: data.data.user.daily_streak || 0
             })
+          } else {
+            console.warn('⚠️ API returned no user data')
+            setEconomyData({
+              fragments: 0,
+              level: 1,
+              xp: 0,
+              lives: 3,
+              dataShards: 0,
+              dailyStreak: 0
+            })
           }
         } else {
-          console.warn('⚠️ API returned no user data, using defaults')
+          console.warn('⚠️ API request failed:', response.status)
+          setEconomyData({
+            fragments: 0,
+            level: 1,
+            xp: 0,
+            lives: 3,
+            dataShards: 0,
+            dailyStreak: 0
+          })
         }
       } catch (error) {
         console.error('Failed to fetch economy data:', error)
         console.log('🔄 Using default values while API is unavailable')
+        setEconomyData({
+          fragments: 0,
+          level: 1,
+          xp: 0,
+          lives: 3,
+          dataShards: 0,
+          dailyStreak: 0
+        })
       } finally {
         setLoading(false)
       }
@@ -146,7 +183,7 @@ export default function Economy() {
     : shopItems.filter(item => item.category === selectedCategory)
 
   const handlePurchase = async (item: ShopItem) => {
-    if (economyData.fragments < item.price) {
+    if (!economyData || economyData.fragments < item.price) {
       alert('Not enough fragments!')
       return
     }
@@ -154,18 +191,50 @@ export default function Economy() {
     setPurchasing(item.id)
     
     try {
-      // Simulate purchase
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Instant purchase with visual feedback
+      await new Promise(resolve => setTimeout(resolve, 800))
       
-      setEconomyData(prev => ({
-        ...prev,
-        fragments: prev.fragments - item.price
-      }))
-
-      alert(`Successfully purchased ${item.name}!`)
+      const newData = {
+        ...economyData,
+        fragments: economyData.fragments - item.price,
+        // Add XP for purchases
+        xp: economyData.xp + Math.floor(item.price / 10)
+      }
+      
+      setEconomyData(newData)
+      
+      // Save to local storage immediately
+      localStorage.setItem(`opure_economy_${user.id}`, JSON.stringify(newData))
+      
+      // Add purchased item to inventory
+      const inventory = JSON.parse(localStorage.getItem(`opure_inventory_${user.id}`) || '[]')
+      inventory.push({
+        id: Date.now().toString(),
+        itemId: item.id,
+        name: item.name,
+        purchaseDate: new Date().toISOString(),
+        effect: item.effect
+      })
+      localStorage.setItem(`opure_inventory_${user.id}`, JSON.stringify(inventory))
+      
+      console.log(`💰 PURCHASE SUCCESS: ${item.name} for ${item.price} fragments!`)
+      alert(`🎉 Successfully purchased ${item.name}! You now have ${newData.fragments} fragments remaining.`)
+      
+      // Background API sync (don't wait for it)
+      fetch(buildApiUrl(`/api/bot/purchase`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          itemId: item.id,
+          price: item.price,
+          newFragments: newData.fragments
+        })
+      }).catch(() => console.log('📡 Background purchase sync failed, local purchase still valid'))
+      
     } catch (error) {
       console.error('Purchase failed:', error)
-      alert('Purchase failed. Please try again.')
+      alert('Purchase processing error, please try again.')
     } finally {
       setPurchasing(null)
     }

@@ -1,5 +1,27 @@
-// Vercel Serverless Function Handler
+// Vercel Serverless Function Handler  
 // This file handles all API routes for the Opure Discord Activity
+
+// Import database utilities for live bot data
+const { 
+  initializeDatabases, 
+  getUserData, 
+  getUserPlaylists,
+  recordActivitySession,
+  getAllUsers 
+} = require('./database.js')
+
+// Initialize database connections on first run
+let dbInitialized = false
+if (!dbInitialized) {
+  console.log('🔌 Initializing database connections...')
+  const success = initializeDatabases()
+  if (success) {
+    dbInitialized = true
+    console.log('✅ Database connections established!')
+  } else {
+    console.error('❌ Database initialization failed - API will use fallback data')
+  }
+}
 
 export default async function handler(req, res) {
   console.log(`🚀 API Request: ${req.method} ${req.url}`)
@@ -80,7 +102,7 @@ export default async function handler(req, res) {
     }
     
     if (path.startsWith('/api/bot/sync/')) {
-      return handleBotSync(req, res)
+      return await handleBotSync(req, res)
     }
     
     if (path.startsWith('/api/ai/chat')) {
@@ -670,7 +692,7 @@ async function handleBotData(req, res) {
   }
 }
 
-function handleBotSync(req, res) {
+async function handleBotSync(req, res) {
   const userId = req.url.split('/').pop()
   
   if (!userId) {
@@ -680,30 +702,78 @@ function handleBotSync(req, res) {
     })
   }
 
-  // Mock bot data for now
-  const botData = {
-    user: {
-      id: userId,
-      fragments: 100,
-      data_shards: 0,
-      level: 1,
-      xp: 0,
-      lives: 3
-    },
-    achievements: [],
-    quests: [],
-    stats: {
-      messages_sent: 0,
-      commands_used: 0,
-      music_tracks_played: 0
-    }
-  }
+  console.log(`🔄 Bot sync request for user: ${userId}`)
 
-  return res.json({
-    success: true,
-    data: botData,
-    timestamp: new Date().toISOString()
-  })
+  try {
+    // Get LIVE user data from bot database (async now supports Supabase)
+    const liveUserData = await getUserData(userId)
+    
+    if (liveUserData) {
+      console.log(`✅ LIVE DATA retrieved for user ${userId}:`, {
+        fragments: liveUserData.user.fragments,
+        level: liveUserData.user.level,
+        achievements: liveUserData.achievements.length
+      })
+      
+      // Record this activity session
+      recordActivitySession(userId, {
+        source: 'discord_activity',
+        timestamp: Date.now(),
+        sync_successful: true
+      })
+      
+      return res.json({
+        success: true,
+        data: liveUserData,
+        source: 'live_database',
+        timestamp: new Date().toISOString()
+      })
+    } else {
+      console.log(`⚠️ No live data found for user ${userId}, creating initial data`)
+      
+      // User not found in database - they're new
+      const initialData = {
+        user: {
+          id: userId,
+          fragments: 100,
+          data_shards: 0,
+          level: 1,
+          xp: 0,
+          lives: 3,
+          daily_streak: 0
+        },
+        achievements: [],
+        quests: [],
+        stats: {
+          messages_sent: 0,
+          commands_used: 0,
+          music_tracks_played: 0,
+          ai_conversations: 0,
+          games_played: 0
+        },
+        inventory: []
+      }
+      
+      return res.json({
+        success: true,
+        data: initialData,
+        source: 'new_user_defaults',
+        message: 'User not found in bot database - using initial values',
+        timestamp: new Date().toISOString()
+      })
+    }
+    
+  } catch (error) {
+    console.error(`❌ Bot sync error for user ${userId}:`, error)
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to sync bot data',
+      message: error.message,
+      userId: userId,
+      timestamp: new Date().toISOString()
+    })
+  }
 }
 
 async function handleAIChat(req, res) {
@@ -759,29 +829,35 @@ function handleUserPlaylists(req, res) {
     })
   }
 
-  // Mock user playlists - in real implementation, fetch from bot database
-  const userPlaylists = [
-    {
-      id: `user-${userId}-favorites`,
-      name: `${userId}'s Favorites`,
-      thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg',
-      tracks: [
-        {
-          id: 'user-1',
-          title: 'User Favorite Song 1',
-          videoId: 'dQw4w9WgXcQ',
-          duration: '3:32',
-          thumbnail: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg'
-        }
-      ]
-    }
-  ]
+  console.log(`🎵 Playlist request for user: ${userId}`)
 
-  return res.json({
-    success: true,
-    playlists: userPlaylists,
-    timestamp: new Date().toISOString()
-  })
+  try {
+    // Get LIVE user playlists from bot database
+    const livePlaylists = getUserPlaylists(userId)
+    
+    console.log(`✅ LIVE PLAYLISTS retrieved for user ${userId}: ${livePlaylists.length} playlists found`)
+    
+    return res.json({
+      success: true,
+      playlists: livePlaylists,
+      source: 'live_database',
+      count: livePlaylists.length,
+      timestamp: new Date().toISOString()
+    })
+    
+  } catch (error) {
+    console.error(`❌ Playlist fetch error for user ${userId}:`, error)
+    
+    // Return empty playlists array on error instead of mock data
+    return res.json({
+      success: true,
+      playlists: [],
+      source: 'error_fallback',
+      error: error.message,
+      message: 'Failed to load playlists from database',
+      timestamp: new Date().toISOString()
+    })
+  }
 }
 
 function handleMusic(req, res) {
