@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Activity Auth Debug Tool</title>
+    <script src="https://discord.com/api/stable/embedded-app-sdk.js"></script>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #1a1a1a; 
+            color: #00ff00; 
+            padding: 20px; 
+            line-height: 1.5;
+        }
+        .log { 
+            background: #000; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+            border-left: 3px solid #00ff00;
+            white-space: pre-wrap;
+        }
+        .error { border-left-color: #ff0000; color: #ff6666; }
+        .success { border-left-color: #00ff00; color: #66ff66; }
+        .warning { border-left-color: #ffaa00; color: #ffcc66; }
+        .button { 
+            background: #333; 
+            color: #fff; 
+            border: 1px solid #555; 
+            padding: 10px 20px; 
+            margin: 10px 5px; 
+            cursor: pointer; 
+            border-radius: 5px;
+        }
+        .button:hover { background: #555; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Discord Activity Authentication Debug Tool</h1>
+    <p>This tool will help diagnose authentication issues with your Discord Activity.</p>
+    
+    <button class="button" onclick="testDiscordSDK()">Test Discord SDK</button>
+    <button class="button" onclick="testAuthenticate()">Test Authenticate()</button>
+    <button class="button" onclick="testParticipants()">Test Participants</button>
+    <button class="button" onclick="clearLogs()">Clear Logs</button>
+    
+    <div id="logs"></div>
+
+    <script>
+        const CLIENT_ID = '1388207626944249856';
+        let sdk = null;
+        
+        function log(message, type = 'log') {
+            const timestamp = new Date().toISOString();
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.textContent = `[${timestamp}] ${message}`;
+            document.getElementById('logs').appendChild(logDiv);
+            console.log(message);
+            
+            // Auto scroll to bottom
+            logDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        async function testDiscordSDK() {
+            log('🚀 Testing Discord SDK Initialization...', 'log');
+            
+            try {
+                // Check if we're in Discord context
+                const inIframe = window.self !== window.top;
+                const discordReferrer = document.referrer.includes('discord.com');
+                const hasDiscordQuery = window.location.search.includes('frame_id') || 
+                                       window.location.search.includes('instance_id');
+                
+                log(`Environment Check:
+                - In iframe: ${inIframe}
+                - Discord referrer: ${discordReferrer}
+                - Has Discord query params: ${hasDiscordQuery}
+                - URL: ${window.location.href}
+                - Referrer: ${document.referrer}`, 'log');
+                
+                if (!inIframe && !discordReferrer && !hasDiscordQuery) {
+                    log('❌ NOT in Discord Activity context! Launch this from Discord, not directly in browser.', 'error');
+                    return;
+                }
+                
+                log('✅ Discord context detected, initializing SDK...', 'success');
+                
+                sdk = new DiscordSDK(CLIENT_ID);
+                
+                log('⏳ Waiting for SDK to be ready...', 'log');
+                await sdk.ready();
+                
+                log(`✅ Discord SDK ready!
+                - Client ID: ${sdk.clientId}
+                - Instance ID: ${sdk.instanceId || 'Not available'}
+                - Commands available: ${Object.keys(sdk.commands || {}).join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`💥 SDK initialization failed: ${error.message}`, 'error');
+                log(`Stack trace: ${error.stack}`, 'error');
+            }
+        }
+        
+        async function testAuthenticate() {
+            if (!sdk) {
+                log('❌ SDK not initialized. Run "Test Discord SDK" first.', 'error');
+                return;
+            }
+            
+            log('🔐 Testing Discord authenticate() method...', 'log');
+            
+            try {
+                const authResponse = await sdk.commands.authenticate({
+                    scopes: ['identify', 'rpc', 'rpc.activities.write', 'rpc.voice.read'],
+                });
+                
+                log('✅ authenticate() successful!', 'success');
+                log(`User Data: ${JSON.stringify(authResponse.user, null, 2)}`, 'success');
+                log(`Access Token: ${authResponse.access_token ? 'PRESENT' : 'MISSING'}`, authResponse.access_token ? 'success' : 'warning');
+                
+                if (authResponse.user && authResponse.user.id && authResponse.user.id.length > 15) {
+                    log('🎉 REAL Discord user data received! Authentication is working!', 'success');
+                } else {
+                    log('⚠️ Fake/demo user data received. Check Discord Application configuration.', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ authenticate() failed: ${error.message}`, 'error');
+                log(`This usually means:
+                1. Missing scopes in Discord Developer Portal
+                2. Activity not properly configured
+                3. OAuth2 redirect URIs not set correctly`, 'error');
+            }
+        }
+        
+        async function testParticipants() {
+            if (!sdk) {
+                log('❌ SDK not initialized. Run "Test Discord SDK" first.', 'error');
+                return;
+            }
+            
+            log('👥 Testing getInstanceConnectedParticipants()...', 'log');
+            
+            try {
+                const participants = await sdk.commands.getInstanceConnectedParticipants();
+                
+                log('✅ Participants retrieved!', 'success');
+                log(`Participants: ${JSON.stringify(participants, null, 2)}`, 'success');
+                
+                if (participants && participants.participants && participants.participants.length > 0) {
+                    const firstUser = participants.participants[0];
+                    if (firstUser.id && firstUser.id.length > 15 && firstUser.username !== 'DiscordUser') {
+                        log('🎉 REAL participant data found! Fallback method working!', 'success');
+                    } else {
+                        log('⚠️ Fake participant data. Check Activity permissions.', 'warning');
+                    }
+                } else {
+                    log('⚠️ No participants found in Activity.', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ getInstanceConnectedParticipants() failed: ${error.message}`, 'error');
+                log(`This usually means:
+                1. Activity permissions not granted
+                2. User not in voice channel
+                3. Activity not launched properly`, 'error');
+            }
+        }
+        
+        // Auto-start diagnostic when page loads
+        window.addEventListener('load', () => {
+            log('🔍 Discord Activity Authentication Debug Tool Started', 'log');
+            log('Click "Test Discord SDK" to begin diagnosis...', 'log');
+            
+            // Show current URL parameters for debugging
+            const urlParams = new URLSearchParams(window.location.search);
+            const params = {};
+            for (const [key, value] of urlParams.entries()) {
+                params[key] = value;
+            }
+            
+            if (Object.keys(params).length > 0) {
+                log(`URL Parameters: ${JSON.stringify(params, null, 2)}`, 'log');
+            } else {
+                log('No URL parameters found (this might indicate you\'re not in Discord)', 'warning');
+            }
+        });
+    </script>
+</body>
+</html>
