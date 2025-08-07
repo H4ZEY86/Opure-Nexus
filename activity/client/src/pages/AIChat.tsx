@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, Send, Bot, User, Zap, Heart, Coffee, Music } from 'lucide-react'
-import { useDiscord } from '../hooks/useDiscord'
-import { buildApiUrl } from '../config/api'
+import { useDiscord } from '../contexts/DiscordContext'
+import { getAIResponse } from '../data/mockData'
 
 interface ChatMessage {
   id: string
@@ -72,63 +72,34 @@ export default function AIChat() {
     setIsTyping(true)
 
     try {
-      // Send to AI endpoint
-      const response = await fetch(buildApiUrl('/api/ai/chat'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: content,
-          userId: user?.id,
-          context: {
-            username: user?.username,
-            activity: 'discord-activity'
-          }
-        })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        
-        // Simulate typing delay
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
-        
-        const aiMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          content: data.response || "Aye, that's a right interesting point! Tell me more about that, will ye?",
-          sender: 'ai',
-          timestamp: new Date()
-        }
-
-        setMessages(prev => [...prev, aiMessage])
-      } else {
-        throw new Error('Failed to get AI response')
-      }
-    } catch (error) {
-      console.error('AI Chat error:', error)
+      console.log('🤖 Getting AI response locally for:', content)
       
-      // Fallback Scottish AI responses
-      const fallbackResponses = [
-        "Aye, that's pure mental! Rangers are the best team in Scotland, ken!",
-        "Juice WRLD was a legend, rest in peace. His music still hits different, ye know?",
-        "That's some proper Scottish wisdom right there! What else is on yer mind?",
-        "I'm buzzing like a proper Rangers fan on derby day! Tell me more!",
-        "Ach, that's brilliant! Ye've got a good head on yer shoulders, that's for sure!",
-        "Pure class, that is! What other topics are rattling around in that brain of yours?",
-        "Aye, I hear ye loud and clear! That's the kind of thinking we need more of!",
-        "Mental! Absolutely mental! But in the best way possible, ken?"
-      ]
+      // Simulate realistic AI thinking time
+      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1500))
       
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Get AI response using local function
+      const aiResponseData = getAIResponse(content, user?.username || 'mate')
       
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)],
+        content: aiResponseData.message,
         sender: 'ai',
         timestamp: new Date()
       }
 
+      console.log('✅ AI response generated:', aiResponseData.message.substring(0, 50) + '...')
+      setMessages(prev => [...prev, aiMessage])
+      
+    } catch (error) {
+      console.error('❌ AI Chat error:', error)
+      
+      // Fallback response
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: `Aye ${user?.username || 'mate'}, that's a pure interesting question! Tell me more about that, will ye?`,
+        sender: 'ai',
+        timestamp: new Date()
+      }
       setMessages(prev => [...prev, aiMessage])
     } finally {
       setIsLoading(false)

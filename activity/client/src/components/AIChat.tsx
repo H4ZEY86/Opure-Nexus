@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Bot, User, Sparkles } from 'lucide-react'
 import { useDiscord } from '../contexts/DiscordContext'
-import { getAIResponse } from '../data/mockData'
+import { buildApiUrl } from '../config/api'
 
 interface ChatMessage {
   id: string
@@ -51,24 +51,80 @@ export const AIChat: React.FC<AIChatProps> = ({ className = '' }) => {
     }
 
     setMessages(prev => [...prev, userMessage])
+    const messageContent = inputMessage.trim()
     setInputMessage('')
     setIsTyping(true)
 
-    // Simulate AI thinking time
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000))
+    try {
+      // Send to REAL AI endpoint
+      const response = await fetch(buildApiUrl('/api/ai/chat'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: messageContent,
+          userId: user?.id,
+          context: {
+            username: user?.username || user?.global_name,
+            activity: 'discord-activity'
+          }
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        console.log('✅ Real AI response received from:', data.source || 'unknown')
+        
+        const aiMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          content: data.response || "Aye, that's interesting! Tell me more!",
+          sender: 'ai',
+          timestamp: new Date(),
+          personality: 'scottish'
+        }
 
-    const aiResponse = getAIResponse(inputMessage.trim(), user?.username || 'mate')
-    
-    const aiMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      content: aiResponse.message,
-      sender: 'ai',
-      timestamp: new Date(),
-      personality: aiResponse.personality
+        setMessages(prev => [...prev, aiMessage])
+      } else {
+        throw new Error(`API Error: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('❌ AI Chat error:', error)
+      
+      // Enhanced fallback with context awareness
+      const getSmartFallback = (msg: string, username?: string) => {
+        const name = username || 'mate'
+        const msgLower = msg.toLowerCase()
+        
+        if (msgLower.includes('rangers') || msgLower.includes('football')) {
+          return `Aye ${name}! Rangers FC are pure class! 55 titles and counting! 🔵⚪`
+        }
+        if (msgLower.includes('juice') || msgLower.includes('wrld')) {
+          return `Juice WRLD was a legend, ${name}! His music still hits different. What's your favorite track? 🎵`
+        }
+        if (msgLower.includes('music')) {
+          return `Music is life, ${name}! From Juice WRLD to Scottish bangers, I love it all! 🎧`
+        }
+        if (msgLower.includes('hello') || msgLower.includes('hi')) {
+          return `Alright ${name}! Good to see ye here in the Activity! Rangers fan? Juice WRLD lover? 🏴󠁧󠁢󠁳󠁣󠁴󠁿`
+        }
+        
+        return `That's pure mental, ${name}! I'm having some connection issues with my AI brain, but I'm still here for a blether! 🤖`
+      }
+      
+      const fallbackMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: getSmartFallback(messageContent, user?.username || user?.global_name),
+        sender: 'ai',
+        timestamp: new Date(),
+        personality: 'scottish'
+      }
+
+      setMessages(prev => [...prev, fallbackMessage])
+    } finally {
+      setIsTyping(false)
     }
-
-    setMessages(prev => [...prev, aiMessage])
-    setIsTyping(false)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

@@ -4,7 +4,7 @@ import { Music as MusicIcon, PlayCircle, Radio, Headphones, MessageCircle } from
 import DiscordYouTubePlayer from '../components/DiscordYouTubePlayer'
 import AIChat from '../components/AIChat'
 import { useDiscord } from '../contexts/DiscordContext'
-import { defaultPlaylists, getUserPlaylists, type Playlist, type Track } from '../data/mockData'
+import { buildApiUrl } from '../config/api'
 
 interface YouTubeTrack {
   id: string
@@ -28,114 +28,7 @@ export default function Music() {
   const [currentTrack, setCurrentTrack] = useState<YouTubeTrack | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // Default Scottish/Gaming playlist
-  const defaultPlaylists: Playlist[] = [
-    {
-      id: 'juice-wrld',
-      name: 'Juice WRLD Essentials',
-      thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg',
-      tracks: [
-        {
-          id: '1',
-          title: 'Lucid Dreams - Juice WRLD',
-          videoId: 'mzB1VGllGMU',
-          duration: '4:04',
-          thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg'
-        },
-        {
-          id: '2',
-          title: 'Robbery - Juice WRLD',
-          videoId: 'iI34LYmJ1Fs',
-          duration: '4:03',
-          thumbnail: 'https://img.youtube.com/vi/iI34LYmJ1Fs/hqdefault.jpg'
-        },
-        {
-          id: '3',
-          title: 'All Girls Are The Same - Juice WRLD',
-          videoId: 'h3h3Y-4qk-g',
-          duration: '2:45',
-          thumbnail: 'https://img.youtube.com/vi/h3h3Y-4qk-g/hqdefault.jpg'
-        },
-        {
-          id: '4',
-          title: 'Bandit (with YoungBoy Never Broke Again) - Juice WRLD',
-          videoId: 'ySw57tDQPcQ',
-          duration: '3:44',
-          thumbnail: 'https://img.youtube.com/vi/ySw57tDQPcQ/hqdefault.jpg'
-        }
-      ]
-    },
-    {
-      id: 'scottish-vibes',
-      name: 'Scottish Vibes',
-      thumbnail: 'https://img.youtube.com/vi/tbNlMtqrYS0/hqdefault.jpg',
-      tracks: [
-        {
-          id: '5',
-          title: 'The Proclaimers - 500 Miles',
-          videoId: 'tbNlMtqrYS0',
-          duration: '3:38',
-          thumbnail: 'https://img.youtube.com/vi/tbNlMtqrYS0/hqdefault.jpg'
-        },
-        {
-          id: '6',
-          title: 'Lewis Capaldi - Someone You Loved',
-          videoId: 'zABzlMbD4gI',
-          duration: '3:22',
-          thumbnail: 'https://img.youtube.com/vi/zABzlMbD4gI/hqdefault.jpg'
-        },
-        {
-          id: '7',
-          title: 'Simple Minds - Don\'t You Forget About Me',
-          videoId: 'CdqoNKCCt7A',
-          duration: '4:20',
-          thumbnail: 'https://img.youtube.com/vi/CdqoNKCCt7A/hqdefault.jpg'
-        },
-        {
-          id: '8',
-          title: 'Bay City Rollers - Saturday Night',
-          videoId: 'z0iCBnf8MIY',
-          duration: '3:25',
-          thumbnail: 'https://img.youtube.com/vi/z0iCBnf8MIY/hqdefault.jpg'
-        }
-      ]
-    },
-    {
-      id: 'gaming-mix',
-      name: 'Gaming Mix',
-      thumbnail: 'https://img.youtube.com/vi/fJ9rUzIMcZQ/hqdefault.jpg',
-      tracks: [
-        {
-          id: '9',
-          title: 'TheFatRat - Unity',
-          videoId: 'fJ9rUzIMcZQ',
-          duration: '4:08',
-          thumbnail: 'https://img.youtube.com/vi/fJ9rUzIMcZQ/hqdefault.jpg'
-        },
-        {
-          id: '10',
-          title: 'Alan Walker - Faded',
-          videoId: '60ItHLz5WEA',
-          duration: '3:32',
-          thumbnail: 'https://img.youtube.com/vi/60ItHLz5WEA/hqdefault.jpg'
-        },
-        {
-          id: '11',
-          title: 'Marshmello - Alone',
-          videoId: 'ALZHF5UqnU4',
-          duration: '4:35',
-          thumbnail: 'https://img.youtube.com/vi/ALZHF5UqnU4/hqdefault.jpg'
-        },
-        {
-          id: '12',
-          title: 'Skrillex - Bangarang',
-          videoId: 'YJVmu6yttiw',
-          duration: '3:35',
-          thumbnail: 'https://img.youtube.com/vi/YJVmu6yttiw/hqdefault.jpg'
-        }
-      ]
-    }
-  ]
+  // Real playlist data will be loaded from bot database
 
   useEffect(() => {
     loadPlaylists()
@@ -145,25 +38,72 @@ export default function Music() {
     try {
       setLoading(true)
       
-      console.log('🎵 Loading playlists locally - NO API CALLS')
-      
-      let allPlaylists = [...defaultPlaylists]
+      console.log('🎵 Loading REAL playlists from bot database...')
       
       if (user) {
-        // Add user's personalized playlists
-        const userPlaylists = getUserPlaylists(user.id, user.username || user.global_name || 'User')
-        allPlaylists = [...userPlaylists, ...defaultPlaylists]
-        console.log('✅ Added user playlists for:', user.username)
+        // Get real playlists from bot database via API
+        const response = await fetch(buildApiUrl(`/api/music/playlists/${user.id}`), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          
+          if (data.success && data.playlists) {
+            setPlaylists(data.playlists)
+            setCurrentPlaylist(data.playlists[0]?.tracks || [])
+            console.log('✅ REAL PLAYLISTS loaded:', data.playlists.length, 'playlists from', data.source)
+            return
+          }
+        } else {
+          console.warn('⚠️ Playlist API error:', response.status)
+        }
       }
       
-      setPlaylists(allPlaylists)
-      setCurrentPlaylist(allPlaylists[0].tracks)
-      console.log('🎵 Loaded', allPlaylists.length, 'playlists with', allPlaylists[0].tracks.length, 'tracks')
+      // Fallback if no user or API fails
+      const fallbackPlaylists = [
+        {
+          id: 'juice-wrld',
+          name: 'Juice WRLD Essentials',
+          thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg',
+          tracks: [
+            {
+              id: '1',
+              title: 'Lucid Dreams - Juice WRLD',
+              videoId: 'mzB1VGllGMU',
+              duration: '4:04',
+              thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg'
+            }
+          ]
+        }
+      ]
+      
+      setPlaylists(fallbackPlaylists)
+      setCurrentPlaylist(fallbackPlaylists[0].tracks)
+      console.log('⚠️ Using fallback playlists')
       
     } catch (error) {
       console.error('❌ Error loading playlists:', error)
-      setPlaylists(defaultPlaylists)
-      setCurrentPlaylist(defaultPlaylists[0].tracks)
+      
+      // Emergency fallback
+      const emergencyPlaylist = [{
+        id: 'emergency',
+        name: 'Emergency Playlist',
+        thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg',
+        tracks: [{
+          id: '1',
+          title: 'Lucid Dreams - Juice WRLD',
+          videoId: 'mzB1VGllGMU', 
+          duration: '4:04',
+          thumbnail: 'https://img.youtube.com/vi/mzB1VGllGMU/hqdefault.jpg'
+        }]
+      }]
+      
+      setPlaylists(emergencyPlaylist)
+      setCurrentPlaylist(emergencyPlaylist[0].tracks)
     } finally {
       setLoading(false)
     }

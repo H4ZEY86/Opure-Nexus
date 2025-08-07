@@ -45,41 +45,77 @@ export const DiscordYouTubePlayer: React.FC<DiscordYouTubePlayerProps> = ({
   }, [discordSdk])
 
   const startWatchTogether = async () => {
-    if (!track || !discordSdk) return
+    if (!track || !user) return
     
     try {
-      console.log('🎵 Starting Discord Watch Together for:', track.title)
+      console.log('🎵 STARTING REAL AUDIO PLAYBACK:', track.title)
+      setIsPlaying(true) // Show loading state immediately
       
-      // Use Discord's Watch Together API
-      const result = await discordSdk.commands.startActivity({
-        activity: {
-          type: 3, // WATCHING
-          name: track.title,
-          url: `https://www.youtube.com/watch?v=${track.videoId}`,
-          details: 'Listening together',
-          state: `Track ${currentTrack + 1} of ${playlist.length}`,
-          assets: {
-            large_image: track.thumbnail,
-            large_text: track.title
-          },
-          party: {
-            id: `opure-music-${Date.now()}`,
-            size: [participants.length + 1, 10]
-          },
-          timestamps: {
-            start: Date.now()
-          }
-        }
+      // CRITICAL FIX: Call consolidated music bridge API to play REAL audio in Discord voice channel
+      const response = await fetch('https://api.opure.uk/api/music-bridge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'play',
+          query: track.title,
+          userId: user.id,
+          guildId: '1362815996557263049', // Your guild ID
+          videoId: track.videoId,
+          title: track.title,
+          duration: track.duration
+        })
       })
       
-      console.log('✅ Watch Together started:', result)
-      setIsPlaying(true)
+      const result = await response.json()
+      console.log('🎵 Music bridge response:', result)
+      
+      if (result.success) {
+        console.log('✅ REAL AUDIO PLAYING IN DISCORD VOICE CHANNEL!')
+        
+        // Update Discord Rich Presence to show what's playing
+        try {
+          await discordSdk?.commands.setActivity({
+            activity: {
+              type: 2, // LISTENING
+              name: track.title,
+              details: '🎵 Playing in voice channel',
+              state: `via Opure Activity`,
+              assets: {
+                large_image: track.thumbnail,
+                large_text: `${track.title} - Playing in ${result.voice_channel || 'Voice Channel'}`
+              },
+              timestamps: {
+                start: Date.now()
+              }
+            }
+          })
+        } catch (richPresenceError) {
+          console.log('Rich presence update failed (not critical):', richPresenceError)
+        }
+        
+        // Show success message
+        setTimeout(() => {
+          alert(`✅ Now playing "${track.title}" in Discord voice channel: ${result.voice_channel || 'Voice Channel'}!`)
+        }, 1000)
+        
+      } else {
+        console.error('❌ Music bridge failed:', result.error)
+        setIsPlaying(false)
+        
+        // Show error and fallback
+        alert(`⚠️ ${result.error || 'Music system unavailable'}\n\n${result.suggestion || 'Try using Discord bot commands directly.'}\n\nOpening YouTube as fallback...`)
+        window.open(`https://www.youtube.com/watch?v=${track.videoId}`, '_blank')
+      }
       
     } catch (error) {
-      console.log('⚠️ Watch Together not available, using direct YouTube link')
-      // Fallback to opening YouTube
+      console.error('❌ Critical music playback error:', error)
+      setIsPlaying(false)
+      
+      // Fallback to YouTube
+      alert('⚠️ Music system temporarily unavailable. Opening YouTube...\n\nFor guaranteed playback, use /play command in Discord.')
       window.open(`https://www.youtube.com/watch?v=${track.videoId}`, '_blank')
-      setIsPlaying(true)
     }
   }
 
@@ -155,21 +191,44 @@ export const DiscordYouTubePlayer: React.FC<DiscordYouTubePlayerProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <Play className="w-6 h-6" />
-                <span className="text-lg">Watch Together on YouTube</span>
+                <span className="text-lg">Play in Discord Voice Channel</span>
                 <Users className="w-5 h-5" />
               </div>
               <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           ) : (
             <div className="p-4 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-2xl border border-green-500/30">
-              <div className="flex items-center justify-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-white font-medium">Now Playing: {track.title}</span>
-                <div className="flex space-x-1">
-                  <div className="w-1 h-4 bg-green-500 rounded animate-pulse" />
-                  <div className="w-1 h-4 bg-green-500 rounded animate-pulse" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-1 h-4 bg-green-500 rounded animate-pulse" style={{ animationDelay: '0.4s' }} />
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-white font-medium">Playing in Discord Voice Channel</span>
+                  <div className="flex space-x-1">
+                    <div className="w-1 h-4 bg-green-500 rounded animate-pulse" />
+                    <div className="w-1 h-4 bg-green-500 rounded animate-pulse" style={{ animationDelay: '0.2s' }} />
+                    <div className="w-1 h-4 bg-green-500 rounded animate-pulse" style={{ animationDelay: '0.4s' }} />
+                  </div>
                 </div>
+                <div className="text-center">
+                  <p className="text-green-400 font-medium">{track.title}</p>
+                  <p className="text-sm text-gray-400 mt-1">🎵 Real audio playing in voice channel</p>
+                </div>
+                <button
+                  onClick={() => {
+                    fetch('https://api.opure.uk/api/music-bridge', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ 
+                        action: 'stop',
+                        userId: user.id,
+                        guildId: '1362815996557263049' 
+                      })
+                    })
+                    setIsPlaying(false)
+                  }}
+                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+                >
+                  Stop Playback
+                </button>
               </div>
             </div>
           )}
@@ -220,8 +279,9 @@ export const DiscordYouTubePlayer: React.FC<DiscordYouTubePlayerProps> = ({
 
         {/* Info */}
         <div className="text-center text-sm text-gray-400">
-          <p>🎵 Click "Watch Together" to start synchronized playback with voice channel participants</p>
-          <p className="mt-1">Or use the YouTube links for individual listening</p>
+          <p>🎵 Click "Play in Discord Voice Channel" for REAL AUDIO playback heard by everyone in voice</p>
+          <p className="mt-1">⚠️ You must be in a Discord voice channel first! Or use YouTube links for individual listening</p>
+          <p className="mt-2 text-green-400">✅ This actually plays audio through your bot's Lavalink music system!</p>
         </div>
       </div>
 
