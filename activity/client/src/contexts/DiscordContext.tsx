@@ -61,8 +61,47 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
       console.log('✅ SDK ready, proceeding with authentication...')
 
-      // STEP 1: OAuth2 authorization with proper callback flow
-      console.log('🔐 STEP 1: Starting OAuth2 flow with callback...')
+      // STEP 1: Try Discord Activity authenticate() method FIRST (most reliable for Activities)
+      console.log('🔐 STEP 1: Using Discord Activity authenticate() method...')
+      let realUser = null
+      
+      try {
+        const authResponse = await discordSdk.commands.authenticate({
+          scopes: ['identify', 'rpc', 'rpc.activities.write', 'rpc.voice.read'],
+        })
+        
+        console.log('✅ Discord authenticate() successful:', authResponse)
+        
+        if (authResponse && authResponse.user) {
+          realUser = {
+            id: authResponse.user.id,
+            username: authResponse.user.username,
+            discriminator: authResponse.user.discriminator || '0001',
+            avatar: authResponse.user.avatar,
+            global_name: authResponse.user.global_name || authResponse.user.username,
+            bot: authResponse.user.bot || false,
+            avatar_decoration_data: authResponse.user.avatar_decoration_data || null
+          }
+          
+          console.log('👤 Setting authenticated user from authenticate():', realUser.username, 'ID:', realUser.id)
+          setUser(realUser)
+          
+          // Store authentication data
+          localStorage.setItem('discord_authenticated', 'true')
+          localStorage.setItem('discord_user', JSON.stringify(realUser))
+          localStorage.setItem('discord_access_token', authResponse.access_token || 'activity_auth')
+          
+          console.log('🎉 Discord Activity authentication completed successfully!')
+          return // Success - skip fallback methods
+        }
+        
+      } catch (authenticateError) {
+        console.error('❌ Discord authenticate() failed:', authenticateError.message)
+        console.warn('⚠️ Falling back to OAuth2 flow...')
+      }
+
+      // STEP 2: OAuth2 authorization fallback
+      console.log('🔐 STEP 2: Trying OAuth2 authorization fallback...')
       let authCode = null
       
       try {
@@ -71,11 +110,11 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           client_id: discordSdk.clientId,
           response_type: 'code',
           state: `activity_${Date.now()}`,
-          scope: ['identify', 'rpc', 'rpc.activities.write', 'rpc.voice.read'].join(' '),
+          scope: ['identify', 'rpc', 'rpc.activities.write'].join(' '),
           redirect_uri: 'https://api.opure.uk/api/auth/callback'
         })
         authCode = authResult.code
-        console.log('✅ OAuth2 authorization code received, will be processed via callback')
+        console.log('✅ OAuth2 authorization code received')
         
         // Exchange the code via our callback endpoint
         console.log('🔄 Exchanging authorization code via OAuth2 callback...')
@@ -130,11 +169,11 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         // Fall through to participant-based authentication
       }
 
-      // STEP 2: Now get participants with proper permissions
-      console.log('🎯 STEP 2: Getting Discord Activity participants with authorized permissions...')
+      // STEP 3: Final fallback - Activity participants method (simplified)
+      console.log('🎯 STEP 3: Final fallback - Getting Activity participants...')
       
-      let realUser = null
-      let participants = null
+      if (!realUser) {
+        let participants = null
       
       try {
         // Get participants with proper OAuth2 permissions
@@ -167,8 +206,9 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         console.error('❌ Failed to get participants:', participantsError.message)
         throw new Error(`Cannot access Discord Activity users: ${participantsError.message}. Check Activity permissions in Discord Developer Portal.`)
       }
+      }
       
-      // STEP 3: Extract Activity context
+      // STEP 4: Extract Activity context
       const urlParams = new URLSearchParams(window.location.search)
       const instanceId = urlParams.get('instance_id')
       const guildId = urlParams.get('guild_id') 
@@ -185,19 +225,28 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         console.warn('⚠️ Could not get channel info:', e.message)
       }
       
-      // STEP 5: Create final user object with REAL Discord data
-      const userData = {
-        id: realUser.id,
-        username: realUser.username,
-        discriminator: realUser.discriminator || '0001',
-        avatar: realUser.avatar,
-        global_name: realUser.global_name || realUser.username,
-        bot: realUser.bot || false,
-        avatar_decoration_data: realUser.avatar_decoration_data || null
+      // STEP 5: Create final user object with REAL Discord data (if we have it from participants fallback)
+      if (realUser) {
+        const userData = {
+          id: realUser.id,
+          username: realUser.username,
+          discriminator: realUser.discriminator || '0001',
+          avatar: realUser.avatar,
+          global_name: realUser.global_name || realUser.username,
+          bot: realUser.bot || false,
+          avatar_decoration_data: realUser.avatar_decoration_data || null
+        }
+        
+        console.log('👤 Setting authenticated REAL Discord user:', userData.username, 'ID:', userData.id)
+        setUser(userData)
+        
+        // Store authentication state
+        localStorage.setItem('discord_authenticated', 'true')
+        localStorage.setItem('discord_user', JSON.stringify(userData))
+        localStorage.setItem('discord_access_token', 'activity_participants')
+      } else {
+        throw new Error('Failed to authenticate with Discord. No user data received from any authentication method.')
       }
-      
-      console.log('👤 Setting authenticated REAL Discord user:', userData.username, 'ID:', userData.id)
-      setUser(userData)
       
       // Optional: Set channel data
       if (channelInfo) {
@@ -205,28 +254,24 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       }
       
       console.log('✅ Discord Activity authentication completed successfully!')
-      console.log('🎉 Real user authenticated:', {
-        id: userData.id,
-        username: userData.username,
-        participantsCount: participants.participants.length,
-        hasOAuth2: !!authCode
-      })
+      console.log('🎉 Real user authenticated!')
 
       // Optional: Sync with server for app-specific data (don't block authentication if this fails)
       try {
         console.log('🔄 Syncing with server for app-specific data...')
+        const currentUser = JSON.parse(localStorage.getItem('discord_user') || '{}')
         const response = await fetch(buildApiUrl('/api/auth/activity-sync'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Discord-User-ID': userData.id,
+            'X-Discord-User-ID': currentUser.id,
             'X-Activity-Instance': instanceId || 'unknown'
           },
           mode: 'cors',
           credentials: 'omit',
           body: JSON.stringify({ 
-            user: userData, 
-            discord_access_token: null, // We don't have OAuth2 token, but that's OK
+            user: currentUser, 
+            discord_access_token: localStorage.getItem('discord_access_token'),
             activity_context: {
               guild_id: guildId,
               channel_id: channelId,
@@ -249,11 +294,6 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         console.warn('⚠️ Server sync failed, Discord authentication still successful:', serverError)
         console.warn('💡 This is OK - Discord Activity will work without server sync')
       }
-
-      // Store authentication state
-      localStorage.setItem('discord_authenticated', 'true')
-      localStorage.setItem('discord_user', JSON.stringify(userData))
-      localStorage.setItem('discord_access_token', authCode || 'activity_user')
 
       console.log('🎉 Authentication completed successfully!')
 
