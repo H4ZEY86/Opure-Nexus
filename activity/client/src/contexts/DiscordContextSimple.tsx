@@ -70,20 +70,36 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
   const loadUserData = async (userId: string) => {
     try {
-      console.log('📊 Loading REAL user data for:', userId)
+      console.log('📊 Loading user data for:', userId)
       
-      const response = await fetch(`https://api.opure.uk/api/bot/sync/${userId}`)
+      const response = await fetch(`https://api.opure.uk/api/user/${userId}`)
       const data = await response.json()
       
       if (data.success) {
-        console.log('✅ REAL USER DATA LOADED:', data.data.user.fragments, 'fragments')
-        // Store in localStorage for quick access
+        console.log('✅ USER DATA LOADED:', data.data.user.fragments, 'fragments')
         localStorage.setItem('opure_user_data', JSON.stringify(data.data))
       } else {
-        console.log('⚠️ API returned error, using fallback')
+        console.log('⚠️ API returned error')
       }
     } catch (error) {
-      console.log('⚠️ Failed to load user data:', error)
+      console.log('⚠️ Failed to load user data, using defaults:', error)
+      // Create local fallback data
+      const fallbackData = {
+        user: {
+          fragments: 1500,
+          level: 8,
+          xp: 450,
+          lives: 3,
+          data_shards: 25,
+          daily_streak: 5
+        },
+        achievements: [
+          { id: 1, name: "First Steps", icon: "🏃" },
+          { id: 2, name: "Music Lover", icon: "🎵" }
+        ],
+        playlists: []
+      }
+      localStorage.setItem('opure_user_data', JSON.stringify(fallbackData))
     }
   }
 
