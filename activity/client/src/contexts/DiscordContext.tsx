@@ -61,14 +61,34 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
       console.log('✅ SDK ready, proceeding with authentication...')
 
-      // CRITICAL FIX: Get participants FIRST without any OAuth2 calls
-      console.log('🎯 STEP 1: Getting real Discord users from Activity (NO OAUTH2 NEEDED)')
+      // STEP 1: OAuth2 authorization with Activity-specific scopes FIRST
+      console.log('🔐 STEP 1: Requesting Activity permissions from Discord...')
+      let authCode = null
+      
+      try {
+        // Request Activity-specific scopes for participant access
+        const authResult = await discordSdk.commands.authorize({
+          client_id: discordSdk.clientId,
+          response_type: 'code',
+          state: '',
+          scope: ['identify', 'rpc', 'rpc.activities.write'].join(' ')
+        })
+        authCode = authResult.code
+        console.log('✅ OAuth2 authorization successful with Activity scopes')
+        
+      } catch (oauthError) {
+        console.error('❌ OAuth2 authorization failed:', oauthError.message)
+        throw new Error(`Discord Activity permissions required: ${oauthError.message}. Please refresh and grant permissions.`)
+      }
+
+      // STEP 2: Now get participants with proper permissions
+      console.log('🎯 STEP 2: Getting Discord Activity participants with authorized permissions...')
       
       let realUser = null
       let participants = null
       
       try {
-        // Get participants WITHOUT any authenticate/authorize calls first
+        // Get participants with proper OAuth2 permissions
         participants = await discordSdk.commands.getInstanceConnectedParticipants()
         console.log('✅ Raw participants data:', JSON.stringify(participants, null, 2))
         
@@ -96,27 +116,7 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         
       } catch (participantsError) {
         console.error('❌ Failed to get participants:', participantsError.message)
-        throw new Error(`Cannot access Discord Activity users: ${participantsError.message}`)
-      }
-      
-      // STEP 2: Optional OAuth2 for additional permissions (only if needed)
-      console.log('🔄 STEP 2: Optional OAuth2 for API access permissions...')
-      let authCode = null
-      
-      try {
-        // Only do OAuth2 if we need additional API permissions
-        const authResult = await discordSdk.commands.authorize({
-          client_id: discordSdk.clientId,
-          response_type: 'code',
-          state: '',
-          scope: 'identify'
-        })
-        authCode = authResult.code
-        console.log('✅ OAuth2 authorization successful for API access')
-        
-      } catch (oauthError) {
-        console.warn('⚠️ OAuth2 failed, but Activity user data is still valid:', oauthError.message)
-        // OAuth2 failure is OK - we still have the real user from participants
+        throw new Error(`Cannot access Discord Activity users: ${participantsError.message}. Check Activity permissions in Discord Developer Portal.`)
       }
       
       // STEP 3: Extract Activity context
@@ -219,8 +219,8 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           errorMessage = 'Authentication was cancelled. Please try again.'
         } else if (err.message.includes('network') || err.message.includes('fetch')) {
           errorMessage = 'Network error during authentication. Please check your connection.'
-        } else if (err.message.includes('scope')) {
-          errorMessage = 'Permission error. Please ensure the Activity has proper permissions.'
+        } else if (err.message.includes('scope') || err.message.includes('permission') || err.message.includes('participants')) {
+          errorMessage = 'Discord Activity permission error. Please check: 1) Activity scopes in Discord Developer Portal, 2) Launch from voice channel, 3) Proper OAuth2 redirect URLs configured.'
         } else {
           errorMessage = `Authentication error: ${err.message}`
         }
