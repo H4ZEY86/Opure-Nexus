@@ -2,8 +2,10 @@ import React from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
-import Home from './pages/Home'
-import Music from './pages/Music'
+import HomeNew from './pages/HomeNew'
+import MusicAdvanced from './pages/MusicAdvanced'
+import UserSetup from './pages/UserSetup'
+import BotCommands from './pages/BotCommands'
 import Settings from './pages/Settings'
 import GameHub from './pages/GameHub'
 import Achievements from './pages/Achievements'
@@ -11,7 +13,7 @@ import Economy from './pages/Economy'
 import AIChat from './pages/AIChat'
 import Admin from './pages/Admin'
 import NotFound from './pages/NotFound'
-import { useDiscord } from './hooks/useDiscord'
+import { useDiscord } from './contexts/DiscordContext'
 import LoadingScreen from './components/common/LoadingScreen'
 import AuthenticationPrompt from './components/auth/AuthenticationPrompt'
 import DebugOverlay from './components/DebugOverlay'
@@ -31,6 +33,13 @@ const pageTransition = {
 export default function App() {
   const location = useLocation()
   const { isLoading, discordSdk, user } = useDiscord()
+  const [hasSeenSetup, setHasSeenSetup] = React.useState(false)
+  
+  // Check if user has completed setup
+  React.useEffect(() => {
+    const userPrefs = localStorage.getItem('opure_user_preferences')
+    setHasSeenSetup(!!userPrefs)
+  }, [])
   
   // Debug user state
   React.useEffect(() => {
@@ -49,6 +58,11 @@ export default function App() {
   // Show authentication prompt if user is not authenticated
   if (!user) {
     return <AuthenticationPrompt />
+  }
+
+  // Show user setup if first time
+  if (!hasSeenSetup) {
+    return <UserSetup />
   }
 
   return (
@@ -132,9 +146,11 @@ export default function App() {
               className="min-h-screen"
             >
               <Routes location={location}>
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<HomeNew />} />
+                <Route path="/home" element={<HomeNew />} />
                 <Route path="/games" element={<GameHub />} />
-                <Route path="/music" element={<Music />} />
+                <Route path="/music" element={<MusicAdvanced />} />
+                <Route path="/commands" element={<BotCommands />} />
                 <Route path="/achievements" element={<Achievements />} />
                 <Route path="/economy" element={<Economy />} />
                 <Route path="/ai-chat" element={<AIChat />} />
@@ -151,13 +167,11 @@ export default function App() {
           <div className="flex items-center justify-around py-2">
             {[
               { path: '/', icon: '🏠', label: 'Home' },
-              { path: '/games', icon: '🎮', label: 'Games' },
               { path: '/music', icon: '🎵', label: 'Music' },
-              { path: '/achievements', icon: '🏆', label: 'Achievements' },
-              { path: '/economy', icon: '💰', label: 'Economy' },
+              { path: '/commands', icon: '⚡', label: 'Commands' },
+              { path: '/games', icon: '🎮', label: 'Games' },
               { path: '/ai-chat', icon: '💬', label: 'AI Chat' },
-              { path: '/settings', icon: '⚙️', label: 'Settings' },
-              { path: '/admin', icon: '🛡️', label: 'Admin', adminOnly: true }
+              { path: '/economy', icon: '💰', label: 'Economy' }
             ].filter(item => !item.adminOnly || (user && user.admin)).map(({ path, icon, label }) => (
               <Link key={path} to={path}>
                 <motion.div
