@@ -52,10 +52,10 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         throw new Error('Discord SDK not ready. Please refresh the Activity.')
       }
 
-      // SIMPLE: Just use Discord's built-in authenticate() method
+      // SIMPLE: Just use Discord's built-in authenticate() method with minimal scopes
       console.log('🔐 Calling Discord authenticate()...')
       const authResponse = await discordSdk.commands.authenticate({
-        scopes: ['identify', 'rpc', 'rpc.activities.write', 'rpc.voice.read'],
+        scopes: ['identify'],
       })
       
       console.log('✅ Authentication response received:', authResponse)
@@ -83,7 +83,43 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       
     } catch (authError) {
       console.error('❌ Authentication failed:', authError.message)
-      setError(`Authentication failed: ${authError.message}`)
+      console.log('🔄 Trying fallback method: getInstanceConnectedParticipants()')
+      
+      // FALLBACK: Try to get user from connected participants
+      try {
+        const participants = await discordSdk.commands.getInstanceConnectedParticipants()
+        console.log('🎯 Participants response:', participants)
+        
+        if (participants && participants.participants && participants.participants.length > 0) {
+          const currentUser = participants.participants[0] // First participant is usually current user
+          console.log('✅ Found user from participants:', currentUser.username)
+          
+          const userData = {
+            id: currentUser.id,
+            username: currentUser.username,
+            discriminator: currentUser.discriminator || '0001',
+            avatar: currentUser.avatar,
+            global_name: currentUser.global_name || currentUser.username,
+            bot: currentUser.bot || false,
+            avatar_decoration_data: currentUser.avatar_decoration_data || null
+          }
+          
+          console.log('🎉 SUCCESS via participants! User:', userData.username, 'ID:', userData.id)
+          setUser(userData)
+          
+          // Store for persistence
+          localStorage.setItem('discord_authenticated', 'true')
+          localStorage.setItem('discord_user', JSON.stringify(userData))
+          
+          return // Success via fallback!
+        } else {
+          console.error('❌ No participants found')
+          setError('No participants found in Activity. Make sure you launched from a voice channel with other users.')
+        }
+      } catch (participantsError) {
+        console.error('❌ Participants fallback also failed:', participantsError.message)
+        setError(`All authentication methods failed. Please check Discord Developer Portal configuration.`)
+      }
     } finally {
       setIsLoading(false)
     }
