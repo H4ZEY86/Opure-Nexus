@@ -1,7 +1,7 @@
 // Real-time Bot Data Synchronization Service
 // Keeps Activity in sync with live bot database changes
 
-const { getUserData, getMainDb } = require('./database.js')
+const { getUserData } = require('./database.js')
 const EventEmitter = require('events')
 
 class BotSyncService extends EventEmitter {
@@ -225,11 +225,8 @@ class BotSyncService extends EventEmitter {
   // Start monitoring database changes (if possible)
   startDatabaseMonitoring() {
     try {
-      const db = getMainDb()
-      if (!db) {
-        console.log('⚠️ Database not available for change monitoring')
-        return
-      }
+      console.log('⚠️ Database change monitoring not available for SQLite')
+      return
       
       console.log('👁️ Database change monitoring would be implemented here')
       // Note: SQLite doesn't have built-in change notifications
