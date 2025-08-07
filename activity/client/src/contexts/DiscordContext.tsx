@@ -61,24 +61,73 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
       console.log('✅ SDK ready, proceeding with authentication...')
 
-      // STEP 1: OAuth2 authorization with Activity-specific scopes FIRST
-      console.log('🔐 STEP 1: Requesting Activity permissions from Discord...')
+      // STEP 1: OAuth2 authorization with proper callback flow
+      console.log('🔐 STEP 1: Starting OAuth2 flow with callback...')
       let authCode = null
       
       try {
-        // Request Activity-specific scopes for participant access
+        // Request OAuth2 authorization with callback redirect
         const authResult = await discordSdk.commands.authorize({
           client_id: discordSdk.clientId,
           response_type: 'code',
-          state: '',
-          scope: ['identify', 'rpc', 'rpc.activities.write'].join(' ')
+          state: `activity_${Date.now()}`,
+          scope: ['identify', 'rpc', 'rpc.activities.write', 'rpc.voice.read'].join(' '),
+          redirect_uri: 'https://api.opure.uk/api/auth/callback'
         })
         authCode = authResult.code
-        console.log('✅ OAuth2 authorization successful with Activity scopes')
+        console.log('✅ OAuth2 authorization code received, will be processed via callback')
+        
+        // Exchange the code via our callback endpoint
+        console.log('🔄 Exchanging authorization code via OAuth2 callback...')
+        const callbackResponse = await fetch('https://api.opure.uk/api/auth/callback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': window.location.origin
+          },
+          mode: 'cors',
+          credentials: 'omit',
+          body: JSON.stringify({ 
+            code: authCode,
+            state: `activity_${Date.now()}`
+          })
+        })
+        
+        if (!callbackResponse.ok) {
+          const errorText = await callbackResponse.text()
+          throw new Error(`OAuth2 callback failed: ${errorText}`)
+        }
+        
+        const callbackData = await callbackResponse.json()
+        console.log('✅ OAuth2 callback successful:', callbackData.user.username)
+        
+        // Set user from OAuth2 callback response
+        const oauthUser = {
+          id: callbackData.user.id,
+          username: callbackData.user.username,
+          discriminator: callbackData.user.discriminator || '0001',
+          avatar: callbackData.user.avatar,
+          global_name: callbackData.user.global_name || callbackData.user.username,
+          bot: false,
+          avatar_decoration_data: null
+        }
+        
+        console.log('👤 Setting OAuth2 authenticated user:', oauthUser.username)
+        setUser(oauthUser)
+        
+        // Store OAuth2 authentication data
+        localStorage.setItem('discord_authenticated', 'true')
+        localStorage.setItem('discord_user', JSON.stringify(oauthUser))
+        localStorage.setItem('discord_access_token', callbackData.access_token || 'oauth2_token')
+        localStorage.setItem('auth_token', callbackData.token)
+        
+        console.log('✅ OAuth2 authentication completed successfully!')
+        return // Skip the Activity participants fallback
         
       } catch (oauthError) {
-        console.error('❌ OAuth2 authorization failed:', oauthError.message)
-        throw new Error(`Discord Activity permissions required: ${oauthError.message}. Please refresh and grant permissions.`)
+        console.error('❌ OAuth2 callback flow failed:', oauthError.message)
+        console.warn('⚠️ Falling back to Activity participants method...')
+        // Fall through to participant-based authentication
       }
 
       // STEP 2: Now get participants with proper permissions
@@ -310,6 +359,54 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         localStorage.removeItem('auth_token')
         
         console.log('🔐 User will need to authenticate with Discord')
+
+        // Check if user returned from OAuth2 callback with auth data
+        const urlParams = new URLSearchParams(window.location.search)
+        const authSuccess = urlParams.get('auth_success')
+        const authToken = urlParams.get('auth_token')
+        const authError = urlParams.get('auth_error')
+        const userId = urlParams.get('user_id')
+        const username = urlParams.get('username')
+        
+        if (authSuccess === 'true' && authToken && userId) {
+          console.log('🎉 OAuth2 callback authentication detected!')
+          try {
+            // Decode the auth token
+            const tokenData = JSON.parse(Buffer.from(authToken, 'base64').toString())
+            
+            const callbackUser = {
+              id: tokenData.userId,
+              username: tokenData.username,
+              discriminator: tokenData.discriminator || '0001',
+              avatar: tokenData.avatar,
+              global_name: tokenData.global_name || tokenData.username,
+              bot: false,
+              avatar_decoration_data: null
+            }
+            
+            console.log('✅ Setting OAuth2 callback user:', callbackUser.username)
+            setUser(callbackUser)
+            
+            // Store authentication data
+            localStorage.setItem('discord_authenticated', 'true')
+            localStorage.setItem('discord_user', JSON.stringify(callbackUser))
+            localStorage.setItem('discord_access_token', tokenData.access_token || 'oauth2_callback')
+            localStorage.setItem('auth_token', authToken)
+            
+            // Clean up URL parameters
+            const cleanUrl = window.location.pathname
+            window.history.replaceState({}, document.title, cleanUrl)
+            
+            console.log('✅ OAuth2 callback authentication successful!')
+            
+          } catch (callbackError) {
+            console.error('❌ Failed to process OAuth2 callback data:', callbackError)
+            setError('Failed to process authentication data from Discord')
+          }
+        } else if (authError) {
+          console.error('❌ OAuth2 callback error:', decodeURIComponent(authError))
+          setError(`Authentication failed: ${decodeURIComponent(authError)}`)
+        }
 
         setIsLoading(false)
 

@@ -9,8 +9,10 @@ export default async function handler(req, res) {
     'https://www.opure.uk',
     'https://opure.uk',
     'https://discord.com',
+    'https://discordapp.com',
     'https://activities.discord.com',
     'https://1388207626944249856.discordsays.com',
+    'https://1388207626944249856.activities.discord.com',
     'null' // For local development and some Discord Activity contexts
   ]
   
@@ -25,7 +27,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Discord-User-ID, X-Activity-Instance')
   res.setHeader('Access-Control-Allow-Credentials', 'false')
   res.setHeader('X-Frame-Options', 'ALLOWALL')
-  res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com;')
+  res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://discord.com https://*.discord.com https://discordapp.com https://*.discordapp.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com;')
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -51,6 +53,18 @@ export default async function handler(req, res) {
     
     if (path.startsWith('/api/auth/discord')) {
       return handleDiscordAuth(req, res)
+    }
+    
+    if (path.startsWith('/api/auth/install/callback')) {
+      // Import and call the bot installation callback handler
+      const { default: installCallback } = await import('./auth/install/callback.js')
+      return installCallback(req, res)
+    }
+    
+    if (path.startsWith('/api/auth/install')) {
+      // Import and call the bot installation handler
+      const { default: install } = await import('./auth/install.js')
+      return install(req, res)
     }
     
     if (path.startsWith('/api/auth/callback')) {
@@ -85,6 +99,8 @@ export default async function handler(req, res) {
         '/',
         '/health', 
         '/api/auth/test',
+        '/api/auth/install',
+        '/api/auth/install/callback',
         '/api/auth/discord',
         '/api/auth/callback',
         '/api/auth/activity-sync',
@@ -330,7 +346,7 @@ async function handleOAuth2Callback(req, res) {
 
     const clientId = process.env.DISCORD_CLIENT_ID || '1388207626944249856'
     const clientSecret = process.env.DISCORD_CLIENT_SECRET
-    const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://api.opure.uk/api/auth/callback'
+    const redirectUri = 'https://api.opure.uk/api/auth/callback' // Fixed callback URL for Activity authentication
     
     // Check environment variables
     if (!clientSecret) {
@@ -517,7 +533,7 @@ async function handleDiscordAuth(req, res) {
 
     const clientId = process.env.DISCORD_CLIENT_ID || '1388207626944249856'
     const clientSecret = process.env.DISCORD_CLIENT_SECRET
-    const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://www.opure.uk'
+    const redirectUri = 'https://api.opure.uk/api/auth/callback' // Fixed callback URL for Activity authentication
     
     // Check if required environment variables are set
     if (!clientSecret) {

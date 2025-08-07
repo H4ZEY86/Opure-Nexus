@@ -36,8 +36,9 @@ export default async function handler(req, res) {
   authUrl.searchParams.set('scope', botScopes.join(' '))
   authUrl.searchParams.set('response_type', 'code')
   
-  // Use Discord's default success redirect (NOT Activity URL)
-  authUrl.searchParams.set('redirect_uri', 'https://discord.com/oauth2/authorized')
+  // Use proper Discord bot installation redirect URI
+  // Discord's oauth2/authorized doesn't work for bot installations - use proper callback
+  authUrl.searchParams.set('redirect_uri', 'https://api.opure.uk/api/auth/install/callback')
   
   if (guildId) {
     authUrl.searchParams.set('guild_id', guildId)
