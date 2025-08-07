@@ -323,7 +323,7 @@ export default function HomeNew() {
             <Headphones className="w-5 h-5 text-white" />
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Status Indicator */}
       <div className="fixed top-4 right-4 bg-black/40 backdrop-blur-xl rounded-xl p-3 border border-white/10">
