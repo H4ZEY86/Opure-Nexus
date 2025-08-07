@@ -25,7 +25,7 @@ import {
   Settings as SettingsIcon,
   Download
 } from 'lucide-react'
-import { useDiscord } from '../contexts/DiscordContext'
+import { useDiscord } from '../contexts/DiscordContextSimple'
 
 // Mock YouTube data - in real app this would come from YouTube API
 const mockVideos = [

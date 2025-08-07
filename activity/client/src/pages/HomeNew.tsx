@@ -17,7 +17,7 @@ import {
   Play,
   Volume2
 } from 'lucide-react'
-import { useDiscord } from '../contexts/DiscordContext'
+import { useDiscord } from '../contexts/DiscordContextSimple'
 
 // 3D Animated Orb Component
 function AnimatedOrb() {

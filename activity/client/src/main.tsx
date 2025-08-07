@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { DiscordProxy } from '@robojs/patch'
 import App from './App.tsx'
-import { DiscordProvider } from './contexts/DiscordContext.tsx'
+import { DiscordProvider } from './contexts/DiscordContextSimple.tsx'
 import { AudioProvider } from './contexts/AudioContext.tsx'
 import './index.css'
 
