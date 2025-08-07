@@ -1,7 +1,7 @@
 // Serverless API endpoint to execute bot commands from Discord Activity
 // Connects to real bot system for command execution
 
-const { executeBotCommand, getUserData } = require('../database.js')
+const { executeBotCommand, getUserData } = require('../database-cloud.js')
 
 // CORS headers for Discord Activity
 const corsHeaders = {

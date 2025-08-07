@@ -1,7 +1,7 @@
 // Serverless API endpoint to sync user data from real bot database
 // This endpoint connects to the actual SQLite database at /mnt/d/Opure.exe/opure.db
 
-const { getUserData, getUserPlaylists, getUserAchievements } = require('../../database.js')
+const { getUserData, getUserPlaylists, getUserAchievements } = require('../../database-cloud.js')
 
 // CORS headers for Discord Activity
 const corsHeaders = {
