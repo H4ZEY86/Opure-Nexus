@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Bot, Terminal, Play, Music, Coins, Trophy, Settings, Zap } from 'lucide-react'
-import { useDiscord } from '../contexts/DiscordContextSimple'
+import { useDiscord } from '../contexts/DiscordContextDirect'
 
 interface BotCommand {
   name: string

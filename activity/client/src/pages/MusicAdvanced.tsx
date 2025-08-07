@@ -25,7 +25,7 @@ import {
   Settings as SettingsIcon,
   Download
 } from 'lucide-react'
-import { useDiscord } from '../contexts/DiscordContextSimple'
+import { useDiscord } from '../contexts/DiscordContextDirect'
 
 // Mock YouTube data - in real app this would come from YouTube API
 const mockVideos = [
@@ -218,11 +218,11 @@ export default function MusicAdvanced() {
     setIsPlaying(true)
     
     try {
-      const response = await fetch('https://api.opure.uk/api/music-bridge', {
+      const response = await fetch('https://api.opure.uk/api/opure-api', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'play',
+          action: 'music-play',
           query: track.title,
           userId: user.id,
           guildId: '1362815996557263049',

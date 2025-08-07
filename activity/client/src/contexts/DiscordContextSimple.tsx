@@ -70,19 +70,27 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
   const loadUserData = async (userId: string) => {
     try {
-      console.log('📊 Loading user data for:', userId)
+      console.log('📊 Loading user data via MEGA API for:', userId)
       
-      const response = await fetch(`https://api.opure.uk/api/user/${userId}`)
+      const response = await fetch('https://api.opure.uk/api/opure-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'user-sync',
+          userId: userId
+        })
+      })
+      
       const data = await response.json()
       
       if (data.success) {
-        console.log('✅ USER DATA LOADED:', data.data.user.fragments, 'fragments')
+        console.log('✅ MEGA API USER DATA LOADED:', data.data.user.fragments, 'fragments')
         localStorage.setItem('opure_user_data', JSON.stringify(data.data))
       } else {
-        console.log('⚠️ API returned error')
+        console.log('⚠️ MEGA API returned error')
       }
     } catch (error) {
-      console.log('⚠️ Failed to load user data, using defaults:', error)
+      console.log('⚠️ MEGA API failed, using fallback data:', error)
       // Create local fallback data
       const fallbackData = {
         user: {
@@ -97,7 +105,14 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
           { id: 1, name: "First Steps", icon: "🏃" },
           { id: 2, name: "Music Lover", icon: "🎵" }
         ],
-        playlists: []
+        playlists: [
+          {
+            name: "Default Mix",
+            songs: [
+              { title: "Lucid Dreams", artist: "Juice WRLD", duration: "3:59" }
+            ]
+          }
+        ]
       }
       localStorage.setItem('opure_user_data', JSON.stringify(fallbackData))
     }
