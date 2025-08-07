@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Coins, ShoppingCart, TrendingUp, Gift, Zap, Heart, Shield, Star } from 'lucide-react'
 import { useDiscord } from '../contexts/DiscordContext'
-import { buildApiUrl } from '../config/api'
+import { generateUserData, type UserData } from '../data/mockData'
 
 interface UserEconomyData {
   fragments: number
@@ -114,10 +114,10 @@ export default function Economy() {
           return
         }
 
-        console.log('🔄 Fetching LIVE economy data for user:', user.id)
+        console.log('💰 Loading economy data locally for user:', user.id)
 
-        // Fetch from live API with both Supabase and SQLite support
-        const response = await fetch(buildApiUrl(`/api/bot/sync/${user.id}`))
+        // Generate consistent user data based on their Discord ID
+        const userData = generateUserData(user.id)
         if (response.ok) {
           const data = await response.json()
           if (data.success && data.data.user) {

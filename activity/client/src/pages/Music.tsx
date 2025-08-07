@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Music as MusicIcon, PlayCircle, Radio, Headphones } from 'lucide-react'
-import YouTubePlayer from '../components/YouTubePlayer'
+import { Music as MusicIcon, PlayCircle, Radio, Headphones, MessageCircle } from 'lucide-react'
+import DiscordYouTubePlayer from '../components/DiscordYouTubePlayer'
+import AIChat from '../components/AIChat'
 import { useDiscord } from '../contexts/DiscordContext'
-import { buildApiUrl } from '../config/api'
+import { defaultPlaylists, getUserPlaylists, type Playlist, type Track } from '../data/mockData'
 
 interface YouTubeTrack {
   id: string
@@ -144,38 +145,20 @@ export default function Music() {
     try {
       setLoading(true)
       
-      if (!user) {
-        console.log('🎵 No user logged in, using default playlists')
-        setPlaylists(defaultPlaylists)
-        setCurrentPlaylist(defaultPlaylists[0].tracks)
-        return
+      console.log('🎵 Loading playlists locally - NO API CALLS')
+      
+      let allPlaylists = [...defaultPlaylists]
+      
+      if (user) {
+        // Add user's personalized playlists
+        const userPlaylists = getUserPlaylists(user.id, user.username || user.global_name || 'User')
+        allPlaylists = [...userPlaylists, ...defaultPlaylists]
+        console.log('✅ Added user playlists for:', user.username)
       }
-
-      // Try to load user's playlists from bot
-      try {
-        console.log('🎵 Loading playlists for user:', user.id)
-        const response = await fetch(buildApiUrl(`/api/music/playlists/${user.id}`))
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log('✅ User playlists loaded:', data.playlists?.length || 0)
-          
-          if (data.playlists && data.playlists.length > 0) {
-            setPlaylists([...defaultPlaylists, ...data.playlists])
-          } else {
-            setPlaylists(defaultPlaylists)
-          }
-        } else {
-          console.log('🎵 No user playlists found, using defaults')
-          setPlaylists(defaultPlaylists)
-        }
-      } catch (apiError) {
-        console.warn('⚠️ API not available, using default playlists:', apiError)
-        setPlaylists(defaultPlaylists)
-      }
-
-      // Set first playlist as active
-      setCurrentPlaylist(defaultPlaylists[0].tracks)
+      
+      setPlaylists(allPlaylists)
+      setCurrentPlaylist(allPlaylists[0].tracks)
+      console.log('🎵 Loaded', allPlaylists.length, 'playlists with', allPlaylists[0].tracks.length, 'tracks')
       
     } catch (error) {
       console.error('❌ Error loading playlists:', error)
@@ -253,7 +236,7 @@ export default function Music() {
         </div>
       </motion.div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Playlists Sidebar */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -261,35 +244,35 @@ export default function Music() {
           transition={{ delay: 0.2 }}
           className="lg:col-span-1"
         >
-          <div className="glass-card p-6 h-full">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center space-x-2">
+          <div className="glass-card p-4 h-full">
+            <h2 className="text-lg font-semibold text-white mb-3 flex items-center space-x-2">
               <PlayCircle className="w-5 h-5 text-blue-500" />
               <span>Playlists</span>
             </h2>
             
             {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-                <p className="text-gray-400 mt-2">Loading playlists...</p>
+              <div className="text-center py-4">
+                <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+                <p className="text-gray-400 mt-2 text-sm">Loading...</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {playlists.map((playlist) => (
                   <div
                     key={playlist.id}
                     onClick={() => selectPlaylist(playlist)}
-                    className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group"
+                    className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group"
                   >
                     <img
                       src={playlist.thumbnail}
                       alt={playlist.name}
-                      className="w-12 h-12 rounded-lg object-cover"
+                      className="w-10 h-10 rounded-lg object-cover"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium group-hover:text-blue-400 transition-colors">
+                      <p className="text-white text-sm font-medium group-hover:text-blue-400 transition-colors truncate">
                         {playlist.name}
                       </p>
-                      <p className="text-gray-400 text-sm">
+                      <p className="text-gray-400 text-xs">
                         {playlist.tracks.length} tracks
                       </p>
                     </div>
@@ -307,25 +290,22 @@ export default function Music() {
           transition={{ delay: 0.3 }}
           className="lg:col-span-2"
         >
-          <YouTubePlayer 
+          <DiscordYouTubePlayer 
             playlist={currentPlaylist}
             onTrackChange={handleTrackChange}
           />
-          
-          {currentTrack && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 p-4 glass-card"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <p className="text-sm text-gray-300">
-                  Now playing: <span className="text-white font-medium">{currentTrack.title}</span>
-                </p>
-              </div>
-            </motion.div>
-          )}
+        </motion.div>
+
+        {/* AI Chat */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4 }}
+          className="lg:col-span-1"
+        >
+          <div className="glass-card h-[600px]">
+            <AIChat />
+          </div>
         </motion.div>
       </div>
     </div>
