@@ -74,57 +74,185 @@ function initializeDatabases() {
   }
 }
 
-// Get live user data - tries Supabase first, then SQLite
+// Get live user data - PRIORITIZE REAL BOT DATABASE
 async function getUserData(userId) {
-  console.log(`🔍 Fetching live data for user: ${userId}`)
+  console.log(`🔍 CRITICAL: Fetching REAL bot data for user: ${userId}`)
   
-  // Try Supabase first for real-time cloud data
-  if (supabaseClient) {
-    try {
-      console.log('🌐 Trying Supabase for live data...')
-      
-      const { data: supabaseUser, error } = await supabaseClient
-        .from('users')
-        .select('*')
-        .eq('discord_id', userId)
-        .single()
-      
-      if (!error && supabaseUser) {
-        console.log(`✅ SUPABASE DATA found for user ${userId}:`, {
-          fragments: supabaseUser.fragments,
-          level: supabaseUser.level
-        })
-        
-        // Format Supabase data to match expected structure
-        return {
-          user: {
-            id: supabaseUser.discord_id,
-            fragments: supabaseUser.fragments || 0,
-            data_shards: supabaseUser.data_shards || 0,
-            level: supabaseUser.level || 1,
-            xp: supabaseUser.xp || 0,
-            lives: supabaseUser.lives || 3,
-            daily_streak: supabaseUser.daily_streak || 0,
-            last_daily: supabaseUser.last_daily
-          },
-          stats: {
-            messages_sent: supabaseUser.messages_sent || 0,
-            commands_used: supabaseUser.commands_used || 0,
-            music_tracks_played: supabaseUser.music_tracks_played || 0,
-            ai_conversations: supabaseUser.ai_conversations || 0,
-            games_played: supabaseUser.games_played || 0
-          },
-          achievements: supabaseUser.achievements || [],
-          quests: supabaseUser.quests || [],
-          inventory: supabaseUser.inventory || [],
-          source: 'supabase'
-        }
-      } else {
-        console.log(`📋 No Supabase data for user ${userId}, trying SQLite...`)
+  // SKIP Supabase - Go straight to REAL bot database
+  console.log('💰 INCOME CRITICAL: Using REAL bot SQLite database for live data')
+  
+  if (!mainDb) {
+    console.error('❌ BUSINESS CRITICAL: Main database not connected - no income possible!')
+    return null
+  }
+  
+  try {
+    console.log('💾 PRIORITY: Getting REAL user data from bot SQLite...')
+    
+    // Get REAL player data from your actual bot
+    const player = mainDb.prepare(`
+      SELECT 
+        user_id,
+        fragments,
+        data_shards,
+        level,
+        xp,
+        lives,
+        daily_streak,
+        last_daily,
+        log_keys
+      FROM players 
+      WHERE user_id = ?
+    `).get(userId)
+    
+    if (!player) {
+      console.log(`🆕 NEW USER: Creating initial data for user ${userId}`)
+      // Create new user in bot database
+      try {
+        mainDb.prepare(`
+          INSERT INTO players (user_id, fragments, data_shards, level, xp, lives, daily_streak, log_keys)
+          VALUES (?, 100, 0, 1, 0, 3, 0, 1)
+        `).run(userId)
+        console.log(`✅ NEW USER CREATED in bot database: ${userId}`)
+        // Fetch the newly created user
+        const newPlayer = mainDb.prepare(`
+          SELECT user_id, fragments, data_shards, level, xp, lives, daily_streak, last_daily, log_keys
+          FROM players WHERE user_id = ?
+        `).get(userId)
+        if (newPlayer) player = newPlayer
+      } catch (createError) {
+        console.warn(`⚠️ Could not create new user in readonly database: ${createError.message}`)
+        return null
       }
-    } catch (supabaseError) {
-      console.log('⚠️ Supabase query failed, falling back to SQLite:', supabaseError.message)
     }
+    
+    if (!player) {
+      console.error(`❌ Still no player data after creation attempt for ${userId}`)
+      return null
+    }
+    
+    // Get REAL user stats
+    const stats = mainDb.prepare(`
+      SELECT 
+        messages_sent,
+        commands_used,
+        music_tracks_played,
+        achievements_earned,
+        music_time_listened,
+        songs_queued,
+        games_completed,
+        daily_streak,
+        social_interactions,
+        unique_achievements
+      FROM user_stats 
+      WHERE user_id = ?
+    `).get(userId) || {}
+    
+    // Get REAL achievements  
+    const achievements = mainDb.prepare(`
+      SELECT achievement_name, description, category, rarity, fragments_reward, unlocked_at, progress_data
+      FROM achievements 
+      WHERE user_id = ?
+      ORDER BY unlocked_at DESC
+    `).all(userId)
+    
+    // Get REAL active quests
+    const quests = mainDb.prepare(`
+      SELECT quest_id, name, description, quest_type, target, current_progress, reward, status, date_assigned
+      FROM user_quests 
+      WHERE user_id = ? AND status = 'active'
+    `).all(userId)
+    
+    // Get REAL inventory items
+    const inventory = mainDb.prepare(`
+      SELECT item_id, quantity
+      FROM player_items 
+      WHERE user_id = ?
+    `).all(userId)
+    
+    // Get REAL RPG data
+    const rpgPlayer = mainDb.prepare(`
+      SELECT class, level as rpg_level, experience, health, mana, strength, defense, agility, intelligence
+      FROM rpg_players 
+      WHERE user_id = ?
+    `).get(userId)
+    
+    const userData = {
+      user: {
+        id: player.user_id,
+        fragments: player.fragments || 0,
+        data_shards: player.data_shards || 0,
+        level: player.level || 1,
+        xp: player.xp || 0,
+        lives: player.lives || 3,
+        daily_streak: player.daily_streak || 0,
+        last_daily: player.last_daily,
+        log_keys: player.log_keys || 1
+      },
+      stats: {
+        messages_sent: stats.messages_sent || 0,
+        commands_used: stats.commands_used || 0,
+        music_tracks_played: stats.music_tracks_played || 0,
+        achievements_earned: stats.achievements_earned || 0,
+        music_time_listened: stats.music_time_listened || 0,
+        songs_queued: stats.songs_queued || 0,
+        games_completed: stats.games_completed || 0,
+        daily_streak: stats.daily_streak || 0,
+        social_interactions: stats.social_interactions || 0,
+        unique_achievements: stats.unique_achievements || 0
+      },
+      achievements: achievements.map(a => ({
+        name: a.achievement_name,
+        description: a.description,
+        category: a.category,
+        rarity: a.rarity,
+        fragments_reward: a.fragments_reward,
+        unlocked_at: a.unlocked_at,
+        progress_data: a.progress_data
+      })),
+      quests: quests.map(q => ({
+        id: q.quest_id,
+        name: q.name,
+        description: q.description,
+        type: q.quest_type,
+        target: q.target,
+        current_progress: q.current_progress,
+        reward: q.reward,
+        status: q.status,
+        date_assigned: q.date_assigned
+      })),
+      inventory: inventory.map(i => ({
+        item_id: i.item_id,
+        quantity: i.quantity
+      })),
+      rpg: rpgPlayer ? {
+        class: rpgPlayer.class,
+        level: rpgPlayer.rpg_level,
+        experience: rpgPlayer.experience,
+        health: rpgPlayer.health,
+        mana: rpgPlayer.mana,
+        strength: rpgPlayer.strength,
+        defense: rpgPlayer.defense,
+        agility: rpgPlayer.agility,
+        intelligence: rpgPlayer.intelligence
+      } : null,
+      source: 'REAL_BOT_DATABASE'
+    }
+    
+    console.log(`💰 REAL USER DATA RETRIEVED FOR INCOME:`, {
+      userId: userData.user.id,
+      fragments: userData.user.fragments,
+      level: userData.user.level,
+      achievements: userData.achievements.length,
+      quests: userData.quests.length,
+      source: 'LIVE_BOT_DB'
+    })
+    
+    return userData
+    
+  } catch (error) {
+    console.error('❌ BUSINESS CRITICAL: Error fetching REAL user data:', error)
+    return null
   }
   
   // Fallback to SQLite database  
