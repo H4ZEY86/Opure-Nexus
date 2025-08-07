@@ -1,125 +1,61 @@
-// OAuth2 Callback Handler for Discord Activity
-// File: /api/auth/callback.js
+// Discord OAuth2 Callback Handler for Discord Activities
+// This handles the OAuth2 redirect and exchanges authorization code for user data
 
 export default async function handler(req, res) {
-  console.log('🔐 OAuth2 callback endpoint hit:', req.method, req.url)
+  console.log(`🔐 OAuth2 Callback: ${req.method} ${req.url}`)
   
   // Set CORS headers for Discord Activities
-  const allowedOrigins = [
-    'https://www.opure.uk',
-    'https://opure.uk',
-    'https://discord.com',
-    'https://activities.discord.com',
-    'https://1388207626944249856.discordsays.com',
-    'null' // For local development and some Discord Activity contexts
-  ]
-  
-  const origin = req.headers.origin
-  if (allowedOrigins.includes(origin) || !origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*')
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*')
-  }
-  
+  res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin')
-  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   res.setHeader('X-Frame-Options', 'ALLOWALL')
-  res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com;')
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
-  
+
   try {
-    // Handle both GET (from Discord redirect) and POST (from frontend)
-    const code = req.method === 'GET' 
-      ? new URL(req.url, `https://${req.headers.host}`).searchParams.get('code')
-      : req.body?.code
+    const { code, state, error } = req.query
     
-    const state = req.method === 'GET'
-      ? new URL(req.url, `https://${req.headers.host}`).searchParams.get('state')  
-      : req.body?.state
-      
-    const error = req.method === 'GET'
-      ? new URL(req.url, `https://${req.headers.host}`).searchParams.get('error')
-      : req.body?.error
-
-    console.log('🔍 OAuth2 callback params:', { 
-      method: req.method,
-      hasCode: !!code, 
-      codeLength: code?.length,
-      state, 
-      error,
-      fullUrl: req.url 
-    })
-
-    // Handle OAuth2 error (user denied permission)
+    // Handle OAuth2 error
     if (error) {
-      console.error('❌ OAuth2 error from Discord:', error)
-      
-      // Redirect back to Activity with error
-      const activityUrl = 'https://www.opure.uk'
-      const redirectUrl = `${activityUrl}?auth_error=${encodeURIComponent(error)}&auth_status=error`
-      
-      if (req.method === 'GET') {
-        return res.redirect(302, redirectUrl)
-      } else {
-        return res.status(400).json({
-          success: false,
-          error: 'OAuth2 authorization failed',
-          details: error,
-          redirectUrl
-        })
-      }
+      console.error('❌ OAuth2 error:', error)
+      return res.status(400).json({
+        success: false,
+        error: 'OAuth2 authorization failed',
+        details: error
+      })
     }
-
-    // Validate authorization code
+    
+    // Require authorization code
     if (!code) {
-      console.error('❌ Missing authorization code in OAuth2 callback')
-      const errorMessage = 'Missing authorization code from Discord OAuth2'
-      
-      if (req.method === 'GET') {
-        const redirectUrl = `https://www.opure.uk?auth_error=${encodeURIComponent(errorMessage)}&auth_status=error`
-        return res.redirect(302, redirectUrl)
-      } else {
-        return res.status(400).json({
-          success: false,
-          error: errorMessage
-        })
-      }
+      return res.status(400).json({
+        success: false,
+        error: 'Missing authorization code',
+        message: 'OAuth2 callback requires authorization code parameter'
+      })
     }
 
+    console.log('✅ Authorization code received:', code.substring(0, 10) + '...')
+    
+    // Exchange authorization code for access token
     const clientId = process.env.DISCORD_CLIENT_ID || '1388207626944249856'
     const clientSecret = process.env.DISCORD_CLIENT_SECRET
-    const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://api.opure.uk/api/auth/callback'
+    const redirectUri = 'https://api.opure.uk/api/auth/callback'
     
-    // Check environment variables
     if (!clientSecret) {
-      console.error('❌ DISCORD_CLIENT_SECRET environment variable missing')
-      const errorMessage = 'Server configuration error: Missing Discord client secret'
-      
-      if (req.method === 'GET') {
-        const redirectUrl = `https://www.opure.uk?auth_error=${encodeURIComponent(errorMessage)}&auth_status=error`
-        return res.redirect(302, redirectUrl)
-      } else {
-        return res.status(500).json({
-          success: false,
-          error: errorMessage
-        })
-      }
+      console.error('❌ DISCORD_CLIENT_SECRET not set')
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error',
+        message: 'Discord OAuth2 not properly configured'
+      })
     }
     
-    console.log('🔄 Exchanging OAuth2 code for access token...')
-    console.log('🔍 Token exchange params:', {
-      clientId: clientId.substring(0, 8) + '...',
-      hasClientSecret: !!clientSecret,
-      redirectUri,
-      codeLength: code.length
-    })
-
-    // Exchange authorization code for access token
+    console.log('🔄 Exchanging code for access token...')
+    
+    // Token exchange with Discord
     const tokenParams = new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
@@ -138,34 +74,20 @@ export default async function handler(req, res) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('❌ Discord token exchange failed:', tokenResponse.status, errorText)
-      
-      const errorMessage = `Discord token exchange failed: ${errorText}`
-      
-      if (req.method === 'GET') {
-        const redirectUrl = `https://www.opure.uk?auth_error=${encodeURIComponent(errorMessage)}&auth_status=token_error`
-        return res.redirect(302, redirectUrl)
-      } else {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid authorization code',
-          details: errorText
-        })
-      }
+      console.error('❌ Token exchange failed:', errorText)
+      return res.status(400).json({
+        success: false,
+        error: 'Discord token exchange failed',
+        details: errorText
+      })
     }
 
     const tokenData = await tokenResponse.json()
-    const { access_token, token_type, expires_in, scope } = tokenData
+    const { access_token, token_type, scope } = tokenData
     
-    console.log('✅ Discord access token received:', {
-      tokenType: token_type,
-      expiresIn: expires_in,
-      scopes: scope,
-      hasAccessToken: !!access_token
-    })
+    console.log('✅ Access token received, scopes:', scope)
 
-    // Get user information with access token
-    console.log('👤 Fetching Discord user information...')
+    // Fetch Discord user data
     const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
       headers: {
         Authorization: `${token_type} ${access_token}`,
@@ -174,89 +96,54 @@ export default async function handler(req, res) {
 
     if (!userResponse.ok) {
       const errorText = await userResponse.text()
-      console.error('❌ Failed to fetch Discord user info:', userResponse.status, errorText)
-      
-      const errorMessage = `Failed to fetch Discord user: ${errorText}`
-      
-      if (req.method === 'GET') {
-        const redirectUrl = `https://www.opure.uk?auth_error=${encodeURIComponent(errorMessage)}&auth_status=user_error`
-        return res.redirect(302, redirectUrl)
-      } else {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to fetch user information',
-          details: errorText
-        })
-      }
-    }
-
-    const user = await userResponse.json()
-    console.log('✅ Discord user retrieved:', {
-      id: user.id,
-      username: user.username,
-      discriminator: user.discriminator
-    })
-
-    // Create application token
-    const appToken = Buffer.from(JSON.stringify({
-      userId: user.id,
-      username: user.username,
-      discriminator: user.discriminator,
-      avatar: user.avatar,
-      global_name: user.global_name,
-      access_token: access_token,
-      token_type: token_type,
-      expires_in: expires_in,
-      scope: scope,
-      timestamp: Date.now(),
-      source: 'oauth2_callback'
-    })).toString('base64')
-
-    console.log('🎉 OAuth2 callback successful for user:', user.username)
-
-    // For GET requests (direct Discord redirect), redirect back to Activity with auth data
-    if (req.method === 'GET') {
-      const activityUrl = 'https://www.opure.uk'
-      const redirectUrl = `${activityUrl}?auth_success=true&auth_token=${encodeURIComponent(appToken)}&user_id=${user.id}&username=${encodeURIComponent(user.username)}`
-      
-      console.log('🔄 Redirecting to Activity with authentication data...')
-      return res.redirect(302, redirectUrl)
-    } 
-    
-    // For POST requests (AJAX from frontend), return JSON response
-    else {
-      return res.json({
-        success: true,
-        message: 'OAuth2 authentication successful',
-        user: {
-          id: user.id,
-          username: user.username,
-          discriminator: user.discriminator,
-          avatar: user.avatar,
-          global_name: user.global_name,
-        },
-        token: appToken,
-        access_token: access_token,
-        expires_in: expires_in,
-        timestamp: new Date().toISOString()
+      console.error('❌ User fetch failed:', errorText)
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch Discord user data',
+        details: errorText
       })
     }
+
+    const userData = await userResponse.json()
+    console.log(`✅ Real Discord user authenticated: ${userData.username}#${userData.discriminator}`)
+
+    // For GET requests (browser redirects), redirect back to Activity
+    if (req.method === 'GET') {
+      // Create success redirect URL back to Activity
+      const activityUrl = new URL('https://www.opure.uk')
+      activityUrl.searchParams.set('auth', 'success')
+      activityUrl.searchParams.set('user_id', userData.id)
+      activityUrl.searchParams.set('username', userData.username)
+      
+      console.log('🔄 Redirecting back to Activity with auth data...')
+      return res.redirect(302, activityUrl.toString())
+    }
+
+    // For POST requests (AJAX), return JSON response
+    return res.json({
+      success: true,
+      message: 'Discord OAuth2 authentication successful',
+      user: {
+        id: userData.id,
+        username: userData.username,
+        discriminator: userData.discriminator,
+        avatar: userData.avatar,
+        global_name: userData.global_name,
+        email: userData.email
+      },
+      access_token,
+      token_type,
+      scope,
+      timestamp: new Date().toISOString()
+    })
 
   } catch (error) {
     console.error('💥 OAuth2 callback error:', error)
-    
-    const errorMessage = `OAuth2 callback failed: ${error.message}`
-    
-    if (req.method === 'GET') {
-      const redirectUrl = `https://www.opure.uk?auth_error=${encodeURIComponent(errorMessage)}&auth_status=callback_error`
-      return res.redirect(302, redirectUrl)
-    } else {
-      return res.status(500).json({
-        success: false,
-        error: 'OAuth2 callback failed',
-        message: error.message,
-        timestamp: new Date().toISOString()
-      })
-    }
+    return res.status(500).json({
+      success: false,
+      error: 'OAuth2 callback failed',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    })
   }
 }
