@@ -1,31 +1,26 @@
 {
   "version": 2,
-  "outputDirectory": "activity/client/dist",
   "builds": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/assets/(.*)",
-      "headers": {
-        "X-Frame-Options": "ALLOWALL",
-        "Access-Control-Allow-Origin": "*"
-      },
-      "dest": "/assets/$1"
+      "src": "activity/server/api/**/*.js",
+      "use": "@vercel/node"
     },
     {
-      "src": "/(.*)",
-      "headers": {
-        "X-Frame-Options": "ALLOWALL",
-        "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.discord.com https://*.discordapp.com https://opure.uk https://www.opure.uk https://api.opure.uk wss://api.opure.uk https://fonts.googleapis.com https://fonts.gstatic.com; frame-ancestors 'self' https://*.discord.com https://*.discordapp.com;",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
-      },
-      "dest": "/index.html"
+      "src": "activity/client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/activity/server/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/activity/client/index.html"
     }
   ]
 }
