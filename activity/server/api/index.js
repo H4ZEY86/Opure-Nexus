@@ -1,39 +1,50 @@
 // Vercel Serverless Function Handler  
 // This file handles all API routes for the Opure Discord Activity
 
-// Import database utilities for live bot data
-const { 
+// Import database utilities for cloud database
+import { 
   initializeDatabases, 
   getUserData, 
   getUserPlaylists,
-  recordActivitySession,
-  getAllUsers 
-} = require('./database.js')
+  logActivity as recordActivitySession,
+  isHealthy as isDatabaseHealthy 
+} from '../database/supabase-service.js'
 
-// Import real bot command bridge for ACTUAL command execution
-const { executeCommand, getBotStatus, checkConnection } = require('./bot-command-bridge.js')
+// Import serverless bot command bridge
+import { executeCommand, getBotStatus, checkConnection } from '../services/bot-command-bridge.js'
 
-// Import real music system bridge for ACTUAL music playback
-const { playTrack, getCurrentTrack, getQueue } = require('./real-music-bridge.js')
+// Import serverless music system bridge
+import { playTrack, getCurrentTrack, getQueue } from '../services/real-music-bridge.js'
 
-// Import real-time bot data synchronization service
-const { registerUserSession, updateUserActivity, forceSyncUser, getCachedUserData, getStats } = require('./bot-sync-service.js')
+// Import serverless real-time sync service
+import { registerUserSession, updateUserActivity, forceSyncUser, getCachedUserData, getStats } from '../services/bot-sync-service.js'
 
-// Initialize database connections on first run
+// Initialize database connections on first run (async in serverless)
 let dbInitialized = false
-if (!dbInitialized) {
-  console.log('🔌 Initializing database connections...')
-  const success = initializeDatabases()
-  if (success) {
-    dbInitialized = true
-    console.log('✅ Database connections established!')
-  } else {
-    console.error('❌ Database initialization failed - API will use fallback data')
+
+async function ensureDatabaseInitialized() {
+  if (!dbInitialized) {
+    console.log('🔌 Initializing cloud database connections...')
+    try {
+      const success = await initializeDatabases()
+      if (success) {
+        dbInitialized = true
+        console.log('✅ Cloud database connections established!')
+      } else {
+        console.warn('⚠️ Database initialization failed - API will use fallback data')
+      }
+    } catch (error) {
+      console.error('❌ Database initialization error:', error.message)
+    }
   }
+  return dbInitialized
 }
 
 export default async function handler(req, res) {
   console.log(`🚀 API Request: ${req.method} ${req.url}`)
+  
+  // Ensure database is initialized
+  await ensureDatabaseInitialized()
   
   // Set CORS headers for Discord Activities
   const allowedOrigins = [
@@ -193,17 +204,38 @@ function handleRoot(req, res) {
   })
 }
 
-function handleHealth(req, res) {
-  return res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    version: '2.0.0',
-    environment: 'vercel-serverless',
-    cors_origin: req.headers.origin || 'no-origin',
-    user_agent: req.headers['user-agent']?.substring(0, 100) || 'no-user-agent'
-  })
+async function handleHealth(req, res) {
+  try {
+    // Check database health
+    const dbHealth = await isDatabaseHealthy()
+    const syncStats = getStats()
+    
+    return res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime ? process.uptime() : 0,
+      memory: process.memoryUsage ? process.memoryUsage() : null,
+      version: '2.0.0',
+      environment: 'vercel-serverless',
+      database: {
+        connected: dbHealth,
+        status: dbHealth ? 'connected' : 'fallback_mode'
+      },
+      sync_service: {
+        active_sessions: syncStats.active_sessions,
+        cached_users: syncStats.cached_users
+      },
+      cors_origin: req.headers.origin || 'no-origin',
+      user_agent: req.headers['user-agent']?.substring(0, 100) || 'no-user-agent'
+    })
+  } catch (error) {
+    console.error('Health check error:', error)
+    return res.json({
+      status: 'degraded',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
 }
 
 function handleAuthTest(req, res) {
@@ -760,11 +792,12 @@ async function handleBotSync(req, res) {
       })
       
       // Record this activity session
-      recordActivitySession(userId, {
+      await recordActivitySession(userId, {
         source: 'discord_activity_realtime',
-        timestamp: Date.now(),
-        sync_successful: true,
-        sync_type: liveUserData.source || 'cached'
+        data: {
+          sync_successful: true,
+          sync_type: liveUserData.source || 'cached'
+        }
       })
       
       return res.json({
