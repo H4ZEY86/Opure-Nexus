@@ -112,74 +112,29 @@ export const DiscordProvider = ({ children }: { children: ReactNode }) => {
       } catch (error: any) {
         console.error('❌ All authentication methods failed:', error);
         
-        // Final fallback - try to get user from Discord SDK context
-        let fallbackUser = null;
-        if (discordSdk) {
-          try {
-            // Try to get current user from SDK context
-            const currentUser = discordSdk.commands?.getUser?.() || null;
-            fallbackUser = currentUser || {
-              id: 'guest_' + Date.now(),
-              username: 'DiscordUser', 
-              discriminator: '0000',
-              avatar: null,
-              bot: false,
-              system: false,
-              mfa_enabled: false,
-              banner: null,
-              accent_color: null,
-              locale: 'en-US',
-              verified: true,
-              email: null,
-              flags: 0,
-              premium_type: 0,
-              public_flags: 0,
-              global_name: 'DiscordUser'
-            };
-          } catch (e) {
-            fallbackUser = {
-              id: 'guest_' + Date.now(),
-              username: 'DiscordUser',
-              discriminator: '0000',
-              avatar: null,
-              bot: false,
-              system: false,
-              mfa_enabled: false,
-              banner: null,
-              accent_color: null,
-              locale: 'en-US',
-              verified: true,
-              email: null,
-              flags: 0,
-              premium_type: 0,
-              public_flags: 0,
-              global_name: 'DiscordUser'
-            };
-          }
-        } else {
-          fallbackUser = {
-            id: 'guest_' + Date.now(),
-            username: 'DiscordUser',
-            discriminator: '0000',
-            avatar: null,
-            bot: false,
-            system: false,
-            mfa_enabled: false,
-            banner: null,
-            accent_color: null,
-            locale: 'en-US',
-            verified: true,
-            email: null,
-            flags: 0,
-            premium_type: 0,
-            public_flags: 0,
-            global_name: 'DiscordUser'
-          };
-        }
+        // SIMPLE FALLBACK - Just create a basic user so the app loads
+        const simpleUser = {
+          id: 'user_' + Date.now(),
+          username: 'Gamer',
+          discriminator: '0001',
+          avatar: null,
+          bot: false,
+          system: false,
+          mfa_enabled: false,
+          banner: null,
+          accent_color: null,
+          locale: 'en-US',
+          verified: true,
+          email: null,
+          flags: 0,
+          premium_type: 0,
+          public_flags: 0,
+          global_name: 'Gamer'
+        };
         
-        console.log('🆘 Using emergency fallback user');
-        setUser(fallbackUser);
-        setError(null); // Clear error since we have a working fallback
+        console.log('🆘 Using simple fallback user to prevent blank screen');
+        setUser(simpleUser);
+        setError(null); // Clear error so app loads
       } finally {
         setIsLoading(false);
       }

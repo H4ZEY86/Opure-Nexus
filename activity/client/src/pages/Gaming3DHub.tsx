@@ -239,8 +239,20 @@ export default function Gaming3DHub() {
     <div className="min-h-screen bg-gradient-to-b from-purple-900 via-blue-900 to-black overflow-hidden">
       {/* 3D Background Scene */}
       <div className="absolute inset-0">
-        <Canvas camera={{ position: [0, 2, 10], fov: 75 }}>
-          <Suspense fallback={null}>
+        <Suspense fallback={
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-white text-center">
+              <div className="text-4xl mb-4">🎮</div>
+              <div className="text-xl">Loading 3D Gaming Hub...</div>
+            </div>
+          </div>
+        }>
+          <Canvas 
+            camera={{ position: [0, 2, 10], fov: 75 }}
+            onError={(error) => {
+              console.error('❌ Canvas error:', error)
+            }}
+          >
             <ambientLight intensity={0.4} />
             <pointLight position={[10, 10, 10]} intensity={0.8} />
             <pointLight position={[-10, -10, -10]} color="#4A90E2" intensity={0.6} />
@@ -255,8 +267,8 @@ export default function Gaming3DHub() {
               autoRotate={true}
               autoRotateSpeed={0.5}
             />
-          </Suspense>
-        </Canvas>
+          </Canvas>
+        </Suspense>
       </div>
 
       {/* UI Overlay */}
