@@ -32,35 +32,25 @@ const pageTransition = {
 
 export default function App() {
   const location = useLocation()
-  const { isLoading, discordSdk, user } = useDiscord()
+  const { isLoading, user } = useDiscord()
   const [hasSeenSetup, setHasSeenSetup] = React.useState(false)
   
   // Check if user has completed setup
   React.useEffect(() => {
-    const userPrefs = localStorage.getItem('opure_user_preferences')
-    setHasSeenSetup(!!userPrefs)
-  }, [])
+    if (user) {
+      const userPrefs = localStorage.getItem(`opure_user_preferences_${user.id}`)
+      setHasSeenSetup(!!userPrefs)
+    }
+  }, [user])
   
-  // Debug user state
-  React.useEffect(() => {
-    console.log('🎮 App: User state changed:', { 
-      hasUser: !!user, 
-      username: user?.username, 
-      id: user?.id,
-      isLoading 
-    })
-  }, [user, isLoading])
-
   if (isLoading) {
     return <LoadingScreen />
   }
 
-  // Show authentication prompt if user is not authenticated
   if (!user) {
     return <AuthenticationPrompt />
   }
 
-  // Show user setup if first time
   if (!hasSeenSetup) {
     return <UserSetup />
   }
