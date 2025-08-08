@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: 'https://opure.uk/auth/callback'
+        redirect_uri: 'https://www.opure.uk/auth/callback'
       })
     })
 
