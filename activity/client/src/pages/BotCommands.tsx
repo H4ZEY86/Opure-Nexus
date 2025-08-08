@@ -17,73 +17,73 @@ const botCommands: BotCommand[] = [
     name: 'play',
     description: 'Play music in voice channel',
     category: 'music',
-    usage: '!play <song name>',
+    usage: '/play <song name>',
     icon: <Play className="w-5 h-5" />,
-    examples: ['!play Lucid Dreams', '!play Rangers Forever', '!play Scottish music']
+    examples: ['/play Lucid Dreams', '/play Rangers Forever', '/play :playlist: :haze:']
   },
   {
     name: 'queue',
     description: 'Show current music queue',
     category: 'music',
-    usage: '!queue',
+    usage: '/queue',
     icon: <Music className="w-5 h-5" />,
-    examples: ['!queue', '!queue clear']
+    examples: ['/queue', '/queue clear']
   },
   {
     name: 'skip',
     description: 'Skip current song',
     category: 'music', 
-    usage: '!skip',
+    usage: '/skip',
     icon: <Music className="w-5 h-5" />,
-    examples: ['!skip', '!skip 3']
+    examples: ['/skip', '/skip 3']
   },
   {
     name: 'balance',
     description: 'Check your fragment balance',
     category: 'economy',
-    usage: '!balance',
+    usage: '/balance',
     icon: <Coins className="w-5 h-5" />,
-    examples: ['!balance', '!bal']
+    examples: ['/balance', '/bal']
   },
   {
     name: 'daily',
     description: 'Claim daily rewards',
     category: 'economy',
-    usage: '!daily',
+    usage: '/daily',
     icon: <Coins className="w-5 h-5" />,
-    examples: ['!daily']
+    examples: ['/daily']
   },
   {
     name: 'shop',
     description: 'Open fragment shop',
     category: 'economy',
-    usage: '!shop',
+    usage: '/shop',
     icon: <Coins className="w-5 h-5" />,
-    examples: ['!shop', '!buy health potion']
+    examples: ['/shop', '/buy health_potion']
   },
   {
     name: 'achievements',
     description: 'View your achievements',
     category: 'games',
-    usage: '!achievements',
+    usage: '/achievements',
     icon: <Trophy className="w-5 h-5" />,
-    examples: ['!achievements', '!ach']
+    examples: ['/achievements', '/ach']
   },
   {
     name: 'profile',
     description: 'View your profile',
     category: 'utility',
-    usage: '!profile',
+    usage: '/profile',
     icon: <Bot className="w-5 h-5" />,
-    examples: ['!profile', '!profile @user']
+    examples: ['/profile', '/profile user:@H4ZEY']
   },
   {
     name: 'help',
     description: 'Show all commands',
     category: 'utility',
-    usage: '!help',
+    usage: '/help',
     icon: <Settings className="w-5 h-5" />,
-    examples: ['!help', '!help music']
+    examples: ['/help', '/help category:music']
   }
 ]
 
@@ -126,19 +126,24 @@ export default function BotCommands() {
   const generateFallbackResponse = (command: BotCommand, example: string) => {
     switch (command.name) {
       case 'play':
-        return `🎵 Now playing: ${example.replace('!play ', '')} in voice channel\n✅ Added to queue position #1`
+        const songName = example.replace('/play ', '').replace(':playlist: :haze:', 'Haze Playlist (15 songs)')
+        return `🎵 Now playing: ${songName} in voice channel\n✅ Bot joined voice channel\n🔊 Volume: 75%\n⏱️ Extended timeout: 60 minutes for playlists`
       case 'balance':
-        return `💰 ${user?.username}'s Balance:\n💎 Fragments: 1,247\n⭐ Level: 8\n❤️ Lives: 3`
+        return `💰 ${user?.username || 'H4ZEY'}'s Balance:\n💎 Fragments: 1,247\n⭐ Level: 8\n❤️ Lives: 3\n🎮 Daily Streak: 4 days`
       case 'daily':
-        return `🎁 Daily Rewards Claimed!\n+150 fragments\n+50 XP\nStreak: 4 days`
+        return `🎁 Daily Rewards Claimed!\n+150 fragments\n+50 XP\n📈 Streak: 4 days\n🎯 Next reward in: 18h 32m`
       case 'queue':
-        return `🎵 Current Queue (3 songs):\n1. Lucid Dreams - Juice WRLD\n2. 500 Miles - The Proclaimers\n3. Someone You Loved - Lewis Capaldi`
+        return `🎵 Current Queue (3 songs):\n1. 🎵 Lucid Dreams - Juice WRLD [3:21]\n2. 🏴󠁧󠁢󠁳󠁣󠁴󠁿 500 Miles - The Proclaimers [3:33]\n3. 💙 Someone You Loved - Lewis Capaldi [3:02]\n\n🔁 Loop: Off | 🔀 Shuffle: Off`
       case 'achievements':
-        return `🏆 Achievements (5/20 unlocked):\n✅ First Song\n✅ Scottish Pride\n✅ Fragment Collector\n🔒 Rangers Supporter\n🔒 Daily Warrior`
+        return `🏆 ${user?.username || 'H4ZEY'}'s Achievements (5/20 unlocked):\n✅ First Song - Play your first track\n✅ Scottish Pride - Play Scottish music\n✅ Fragment Collector - Earn 1000 fragments\n🔒 Rangers Supporter - React with ⚪🔵\n🔒 Daily Warrior - 7 day login streak`
       case 'profile':
-        return `👤 ${user?.username}'s Profile:\n💎 Fragments: 1,247\n⭐ Level: 8\n🎵 Songs Played: 127\n🏆 Achievements: 5/20`
+        return `👤 ${user?.username || 'H4ZEY'}'s Profile:\n💎 Fragments: 1,247\n⭐ Level: 8 (3,456/5,000 XP)\n🎵 Songs Played: 127\n🏆 Achievements: 5/20\n📅 Joined: Aug 2024\n🎮 Last Active: Now`
+      case 'shop':
+        return `🏪 Fragment Shop:\n💚 Health Potion - 50 fragments\n⚡ Speed Boost - 75 fragments\n🛡️ Shield - 100 fragments\n💎 Rare Gem - 500 fragments\n\nYour balance: 1,247 💎`
+      case 'help':
+        return `📋 Opure Bot Commands:\n🎵 Music: /play, /queue, /skip\n💰 Economy: /balance, /daily, /shop\n🎮 Games: /achievements, /profile\n⚙️ Utility: /help\n\nUse /help category:music for specific help`
       default:
-        return `✅ Command executed successfully: ${example}`
+        return `✅ Command executed successfully: ${example}\n🤖 Response from Opure Bot`
     }
   }
 

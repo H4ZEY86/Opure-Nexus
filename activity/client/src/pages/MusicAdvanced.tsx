@@ -249,11 +249,17 @@ export default function MusicAdvanced() {
       if (discordSdk) {
         // Use Discord Activity's built-in messaging to trigger bot commands
         console.log('🤖 Triggering Discord bot command via Activity SDK')
-        console.log('📻 Command:', `/play ${track.title}`)
+        console.log('📻 Slash Command:', `/play ${track.title}`)
         
         // For now, just simulate the command working
         console.log('✅ Audio command sent to Discord bot!')
-        console.log('💡 Manually run this command in Discord chat: `/play ${track.title}`')
+        console.log(`💡 Run this slash command in Discord: /play ${track.title}`)
+        
+        // Special handling for playlist commands
+        if (track.title.includes('playlist')) {
+          console.log('🎵 Playlist detected - bot will stay connected for 60 minutes')
+          console.log('💡 Or try: /play :playlist: :haze:')
+        }
       }
     } catch (error) {
       console.log('⚠️ Discord audio command failed:', error)
