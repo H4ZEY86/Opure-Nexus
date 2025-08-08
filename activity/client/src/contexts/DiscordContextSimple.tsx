@@ -1,213 +1,71 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { DiscordSDK, Types } from '@discord/embedded-app-sdk'
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { DiscordSDK, Types } from '@discord/embedded-app-sdk';
 
+// Define the shape of our context
 interface DiscordContextType {
-  discordSdk: DiscordSDK | null
-  user: Types.User | null
-  channel: Types.Channel | null
-  isLoading: boolean
-  error: string | null
-  authenticate: () => Promise<void>
-  ready: boolean
+  user: Types.User | null;
+  isLoading: boolean;
+  discordSdk: DiscordSDK | null;
 }
 
-export const DiscordContext = createContext<DiscordContextType>({
-  discordSdk: null,
+// Create the context
+const DiscordContext = createContext<DiscordContextType>({
   user: null,
-  channel: null,
   isLoading: true,
-  error: null,
-  authenticate: async () => {},
-  ready: false,
-})
+  discordSdk: null,
+});
 
-export const useDiscord = () => {
-  const context = useContext(DiscordContext)
-  if (!context) {
-    throw new Error('useDiscord must be used within a DiscordProvider')
-  }
-  return context
-}
+// Custom hook to easily access the context
+export const useDiscord = () => useContext(DiscordContext);
 
-interface DiscordProviderProps {
-  children: ReactNode
-}
-
-export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) => {
-  const [discordSdk, setDiscordSdk] = useState<DiscordSDK | null>(null)
-  const [user, setUser] = useState<Types.User | null>(null)
-  const [channel, setChannel] = useState<Types.Channel | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [ready, setReady] = useState(false)
-
-  const authenticate = async () => {
-    if (!discordSdk) return
-
-    try {
-      setIsLoading(true)
-      console.log('🔐 Starting Discord authentication...')
-
-      // Try OAuth2 authentication
-      const authResponse = await discordSdk.commands.authenticate({
-        scopes: ['identify'],
-      })
-
-      if (authResponse?.user) {
-        console.log('✅ Discord authentication successful:', authResponse.user.username)
-        setUser(authResponse.user)
-        
-        // Load real user data from API
-        await loadUserData(authResponse.user.id)
-      }
-    } catch (error: any) {
-      console.log('⚠️ Discord auth failed, creating working user:', error.message)
-      createWorkingUser()
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const loadUserData = async (userId: string) => {
-    try {
-      console.log('📊 Loading user data via MEGA API for:', userId)
-      
-      const response = await fetch('https://api.opure.uk/api/opure-api', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'user-sync',
-          userId: userId
-        })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        console.log('✅ MEGA API USER DATA LOADED:', data.data.user.fragments, 'fragments')
-        localStorage.setItem('opure_user_data', JSON.stringify(data.data))
-      } else {
-        console.log('⚠️ MEGA API returned error')
-      }
-    } catch (error) {
-      console.log('⚠️ MEGA API failed, using fallback data:', error)
-      // Create local fallback data
-      const fallbackData = {
-        user: {
-          fragments: 1500,
-          level: 8,
-          xp: 450,
-          lives: 3,
-          data_shards: 25,
-          daily_streak: 5
-        },
-        achievements: [
-          { id: 1, name: "First Steps", icon: "🏃" },
-          { id: 2, name: "Music Lover", icon: "🎵" }
-        ],
-        playlists: [
-          {
-            name: "Default Mix",
-            songs: [
-              { title: "Lucid Dreams", artist: "Juice WRLD", duration: "3:59" }
-            ]
-          }
-        ]
-      }
-      localStorage.setItem('opure_user_data', JSON.stringify(fallbackData))
-    }
-  }
-
-  const createWorkingUser = () => {
-    console.log('🚧 Creating working user for Activity functionality...')
-    
-    const urlParams = new URLSearchParams(window.location.search)
-    const instanceId = urlParams.get('instance_id')
-    const guildId = urlParams.get('guild_id') || '1362815996557263049'
-    
-    // Generate realistic user ID
-    const userId = instanceId ? 
-      instanceId.replace(/[^0-9]/g, '').substring(0, 18).padStart(18, '1') :
-      Date.now().toString().padStart(18, '1')
-    
-    const workingUser = {
-      id: userId,
-      username: 'OpureUser',
-      discriminator: '0001',
-      avatar: null,
-      global_name: 'Opure Activity User',
-      bot: false,
-      avatar_decoration_data: null
-    }
-    
-    console.log('✅ WORKING USER CREATED:', workingUser.username, 'ID:', workingUser.id)
-    setUser(workingUser)
-    
-    // Load user data for working user
-    loadUserData(workingUser.id)
-  }
+// The provider component that wraps our app
+export const DiscordContextProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<Types.User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [discordSdk, setDiscordSdk] = useState<DiscordSDK | null>(null);
 
   useEffect(() => {
-    let mounted = true
-    
-    const initializeSDK = async () => {
-      console.log('🚀 Initializing Discord SDK...')
-      
+    const setupDiscordSdk = async () => {
       try {
-        const sdk = new DiscordSDK('1388207626944249856')
-        
-        // Wait for SDK to be ready
-        await sdk.ready()
-        
-        if (!mounted) return
-        
-        console.log('✅ Discord SDK initialized successfully!')
-        setDiscordSdk(sdk)
-        setReady(true)
-        
-        // Try to get channel info
-        try {
-          const channelInfo = await sdk.commands.getChannel()
-          if (mounted) setChannel(channelInfo)
-        } catch (e) {
-          console.log('⚠️ Could not get channel info')
-        }
-        
-        // Start authentication
-        if (mounted) {
-          setTimeout(() => authenticate(), 1000)
-        }
-        
-      } catch (error: any) {
-        console.log('⚠️ Discord SDK failed to initialize:', error.message)
-        
-        if (mounted) {
-          setReady(true)
-          createWorkingUser()
-        }
+        // 1. Initialize the Discord SDK
+        const sdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID);
+        setDiscordSdk(sdk);
+        await sdk.ready();
+
+        // 2. Authorize with Discord to get a code
+        const { code } = await sdk.commands.authorize({
+          client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
+          response_type: 'code',
+          state: '',
+          prompt: 'none',
+          scope: ['identify', 'guilds'],
+        });
+
+        // 3. Exchange the code for an access token via our server
+        const response = await fetch('/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+        const { access_token } = await response.json();
+
+        // 4. Authenticate with the SDK using the access token
+        const auth = await sdk.commands.authenticate({ access_token });
+        setUser(auth.user);
+
+      } catch (error) {
+        console.error('Error authenticating with Discord:', error);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
 
-    initializeSDK()
-    
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  const value = {
-    discordSdk,
-    user,
-    channel,
-    isLoading,
-    error,
-    authenticate,
-    ready,
-  }
+    setupDiscordSdk();
+  }, []);
 
   return (
-    <DiscordContext.Provider value={value}>
+    <DiscordContext.Provider value={{ user, isLoading, discordSdk }}>
       {children}
     </DiscordContext.Provider>
-  )
-}
+  );
+};
