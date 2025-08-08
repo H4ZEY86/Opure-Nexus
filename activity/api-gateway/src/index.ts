@@ -40,7 +40,7 @@ const app = express()
 const server = createServer(app)
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'https://opure.uk',
+    origin: process.env.CLIENT_URL || 'https://www.opure.uk',
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -84,7 +84,9 @@ app.use(cors({
       'https://www.opure.uk',
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://discord.com'
+      'https://discord.com',
+      'https://*.api.opure.uk/*',
+      'https://api.opure.uk'
     ]
     
     if (!origin || allowedOrigins.includes(origin)) {
@@ -249,8 +251,8 @@ app.get('*', (req: Request, res: Response) => {
     res.json({
       success: true,
       message: 'Opure Marketplace API Gateway',
-      documentation: 'https://docs.opure.uk/api',
-      frontend: 'https://opure.uk'
+      documentation: 'https://api.opure.uk/api/docs',
+      frontend: 'https://www.opure.uk'
     })
   }
 })
@@ -326,7 +328,7 @@ async function startServer() {
       logger.info(`💾 Redis cache: ${redis ? 'enabled' : 'disabled'}`)
       logger.info(`🔒 Authentication: enabled`)
       logger.info(`⚡ Rate limiting: enabled`)
-      logger.info(`🌐 CORS origin: ${process.env.CLIENT_URL || 'https://opure.uk'}`)
+      logger.info(`🌐 CORS origin: ${process.env.CLIENT_URL || 'https://www.opure.uk'}`)
       
       if (!IS_PRODUCTION) {
         logger.info(`📝 API Documentation: http://localhost:${PORT}/api/info`)

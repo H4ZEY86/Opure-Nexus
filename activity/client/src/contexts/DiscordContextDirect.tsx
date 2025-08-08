@@ -69,9 +69,9 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
   const loadUserDataDirect = async (userId: string) => {
     try {
-      console.log('📊 Loading user data directly via MEGA API...')
+      console.log('📊 Loading REAL user data via REAL BOT API...')
       
-      const response = await fetch('https://api.opure.uk/api/opure-api', {
+      const response = await fetch('https://api.opure.uk/api/real-bot-api', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

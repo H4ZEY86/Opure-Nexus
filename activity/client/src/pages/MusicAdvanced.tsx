@@ -218,7 +218,7 @@ export default function MusicAdvanced() {
     setIsPlaying(true)
     
     try {
-      const response = await fetch('https://api.opure.uk/api/opure-api', {
+      const response = await fetch('https://api.opure.uk/api/real-bot-api', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

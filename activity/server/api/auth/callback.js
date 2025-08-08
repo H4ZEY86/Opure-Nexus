@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     console.log('✅ Access token received, scopes:', scope)
 
     // Fetch Discord user data
-    const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
+    const userResponse = await fetch(`https://discord.com/api/v10/users/${userData.id}`, {
       headers: {
         Authorization: `${token_type} ${access_token}`,
       },

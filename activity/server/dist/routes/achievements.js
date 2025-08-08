@@ -491,7 +491,7 @@ async function trackViralEvent(eventType, data) {
     console.log(`Viral event: ${eventType}`, data);
 }
 function generateShareUrl(shareId, platform) {
-    const baseUrl = process.env.BASE_URL || 'https://opure.uk';
+    const baseUrl = process.env.BASE_URL || 'https://www.opure.uk';
     return `${baseUrl}/share/${shareId}?platform=${platform}`;
 }
 exports.default = router;

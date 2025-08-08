@@ -38,7 +38,8 @@ export default async function handler(req, res) {
   // Set CORS headers for Discord Activities
   const allowedOrigins = [
     'https://www.opure.uk',
-    'https://opure.uk',
+    'https://api.opure.uk/*',
+    'https://*.www.opure.uk',
     'https://discord.com',
     'https://discordapp.com',
     'https://activities.discord.com',
@@ -213,7 +214,7 @@ function handleAuthTest(req, res) {
     environment: {
       discord_client_id: process.env.DISCORD_CLIENT_ID ? 'SET' : 'NOT SET',
       discord_client_secret: process.env.DISCORD_CLIENT_SECRET ? 'SET' : 'NOT SET',
-      discord_redirect_uri: process.env.DISCORD_REDIRECT_URI || 'https://opure.uk (default)',
+      discord_redirect_uri: process.env.DISCORD_REDIRECT_URI || 'https://www.opure.uk (default)',
       vercel_env: process.env.VERCEL ? 'YES' : 'NO'
     },
     headers: {
@@ -268,7 +269,7 @@ async function handleActivitySync(req, res) {
     if (discord_access_token) {
       try {
         console.log('🔍 Verifying Discord access token...')
-        const discordResponse = await fetch('https://discord.com/api/v10/users/@me', {
+        const discordResponse = await fetch(`https://discord.com/api/v10/users/${user.id}`, {
           headers: {
             Authorization: `Bearer ${discord_access_token}`,
           },

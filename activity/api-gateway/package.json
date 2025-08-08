@@ -16,7 +16,7 @@
     "db:seed": "tsx src/scripts/seed.ts",
     "deploy:railway": "npm run build && railway up",
     "deploy:vercel": "npm run build && vercel",
-    "healthcheck": "curl -f http://localhost:${PORT:-3001}/health || exit 1"
+    "healthcheck": "curl -f http://api.opure.uk/api/health || exit 1"
   },
   "dependencies": {
     "@vercel/node": "^3.0.21",
