@@ -11,6 +11,10 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/api/token",
+      "destination": "/api/token.js"
+    },
+    {
       "source": "/api/auth/callback",
       "destination": "/api/auth/callback.js"
     },
