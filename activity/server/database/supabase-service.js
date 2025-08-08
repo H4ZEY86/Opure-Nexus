@@ -419,11 +419,20 @@ export class SupabaseService {
 
       // Apply rewards
       if (achievement) {
-        await this.updateUser(userId, {
-          fragments: this.client.raw(`fragments + ${achievement.reward_fragments || 0}`),
-          xp: this.client.raw(`xp + ${achievement.reward_xp || 0}`),
-          data_shards: this.client.raw(`data_shards + ${achievement.reward_shards || 0}`)
-        })
+        // Get current user data first
+        const { data: currentUser } = await this.client
+          .from('users')
+          .select('fragments, xp, data_shards')
+          .eq('id', userId)
+          .single()
+          
+        if (currentUser) {
+          await this.updateUser(userId, {
+            fragments: (currentUser.fragments || 0) + (achievement.reward_fragments || 0),
+            xp: (currentUser.xp || 0) + (achievement.reward_xp || 0),
+            data_shards: (currentUser.data_shards || 0) + (achievement.reward_shards || 0)
+          })
+        }
       }
 
       console.log(`✅ Awarded achievement ${achievementId} to user ${userId}`)
@@ -453,8 +462,14 @@ export class SupabaseService {
       if (error) throw error
 
       // Update session counter
+      const { data: currentStats } = await this.client
+        .from('user_stats')
+        .select('total_sessions')
+        .eq('user_id', userId)
+        .single()
+        
       await this.updateStats(userId, {
-        total_sessions: this.client.raw('total_sessions + 1')
+        total_sessions: (currentStats?.total_sessions || 0) + 1
       })
 
       return true
@@ -485,8 +500,14 @@ export class SupabaseService {
       if (error) throw error
 
       // Update command counter
+      const { data: currentStats } = await this.client
+        .from('user_stats')
+        .select('commands_used')
+        .eq('user_id', userId)
+        .single()
+        
       await this.updateStats(userId, {
-        commands_used: this.client.raw('commands_used + 1')
+        commands_used: (currentStats?.commands_used || 0) + 1
       })
 
       return true
