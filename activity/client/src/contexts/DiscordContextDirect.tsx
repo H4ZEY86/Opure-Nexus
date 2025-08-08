@@ -45,10 +45,15 @@ export const DiscordProvider = ({ children }: { children: ReactNode }) => {
         });
 
         // 3. Exchange the code for an access token via our server
-        const response = await fetch('/api/token', {
+        const response = await fetch('https://api.opure.uk/api/token', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: JSON.stringify({ code }),
+          mode: 'cors',
+          credentials: 'omit'
         });
 
         if (!response.ok) {
