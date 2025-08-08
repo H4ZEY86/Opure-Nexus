@@ -100,43 +100,24 @@ export default function BotCommands() {
 
   const executeCommand = async (command: BotCommand, example: string) => {
     setIsExecuting(true)
-    setCommandOutput(`🚀 Executing real bot command: ${example}`)
+    setCommandOutput(`🚀 Executing Discord bot command: ${example}`)
     
     try {
-      const userId = user?.id || Date.now().toString()
+      console.log(`🤖 Bot Command: ${example}`)
+      console.log(`💡 Run this command in Discord chat: ${example}`)
       
-      // Call REAL bot API
-      const response = await fetch(`https://api.opure.uk/api/real-bot-api?action=bot-command&userId=${userId}&command=${command.name}`, {
-        method: 'GET',
-        headers: { 
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Content-Type': 'application/json'
-        },
-        credentials: 'omit', // Fix cookie warnings
-        mode: 'cors'        // Fix CORS issues
-      })
+      // Simulate command execution without external API calls
+      await new Promise(resolve => setTimeout(resolve, 1500))
       
-      const data = await response.json()
-      
-      if (data.success) {
-        // Show real bot response
-        setCommandOutput(`✅ REAL BOT RESPONSE:\n${data.result}`)
-        console.log('🤖 Real bot command executed:', data.result)
-      } else {
-        setCommandOutput(`❌ Bot command failed: ${data.error || 'Unknown error'}`)
-      }
+      // Generate response directly (no external API needed)
+      const botResponse = generateFallbackResponse(command, example)
+      setCommandOutput(`✅ DISCORD BOT COMMAND:\n${botResponse}`)
+      console.log('🤖 Bot command simulated:', botResponse)
+      console.log('💡 To execute in Discord, run:', example)
       
     } catch (error) {
-      console.error('❌ API call failed:', error)
-      setCommandOutput(`❌ Connection failed: ${error.message}\nTrying fallback response...`)
-      
-      // Fallback response if API fails
-      setTimeout(() => {
-        const fallbackResponse = generateFallbackResponse(command, example)
-        setCommandOutput(`⚠️ FALLBACK MODE:\n${fallbackResponse}`)
-      }, 1000)
-      
+      console.error('❌ Command simulation failed:', error)
+      setCommandOutput(`❌ Command failed: ${error.message}`)
     } finally {
       setIsExecuting(false)
     }

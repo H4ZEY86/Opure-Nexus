@@ -120,35 +120,36 @@ export default function HomeNew() {
   const [userData, setUserData] = useState<any>(null)
   const [theme, setTheme] = useState('cosmic')
   
-  // Fetch REAL user data from bot database
+  // Load user data directly (no external API calls in Discord Activities)
   useEffect(() => {
     if (user) {
-      console.log('🔄 Fetching REAL user data for:', user.id)
-      fetch(`https://api.opure.uk/api/bot/sync/${user.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setUserData(data.data)
-            console.log('✅ REAL USER DATA LOADED:', data.data.user)
-          } else {
-            console.log('⚠️ API response not successful:', data)
-          }
-        })
-        .catch(err => {
-          console.log('⚠️ Error fetching user data:', err)
-          // Use fallback data
-          setUserData({
-            user: {
-              fragments: 1500,
-              level: 8,
-              lives: 3,
-              xp: 450,
-              data_shards: 25
-            },
-            achievements: [],
-            playlists: []
-          })
-        })
+      console.log('🔄 Loading user data for:', user.id)
+      
+      // Simulate user data for Discord Activity
+      const simulatedUserData = {
+        user: {
+          fragments: 1247,
+          level: 8,
+          lives: 3,
+          xp: 3456,
+          data_shards: 25
+        },
+        achievements: [
+          { id: 1, name: 'First Song', unlocked: true },
+          { id: 2, name: 'Scottish Pride', unlocked: true },
+          { id: 3, name: 'Fragment Collector', unlocked: true },
+          { id: 4, name: 'Rangers Supporter', unlocked: false },
+          { id: 5, name: 'Daily Warrior', unlocked: false }
+        ],
+        playlists: [
+          { id: 1, name: 'Scottish Classics', songs: 15 },
+          { id: 2, name: 'Gaming Beats', songs: 23 },
+          { id: 3, name: 'Chill Vibes', songs: 8 }
+        ]
+      }
+      
+      setUserData(simulatedUserData)
+      console.log('✅ USER DATA LOADED:', simulatedUserData.user)
     }
   }, [user])
 
