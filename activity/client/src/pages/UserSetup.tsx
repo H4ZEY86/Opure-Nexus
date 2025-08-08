@@ -16,7 +16,7 @@ import {
   User,
   Settings
 } from 'lucide-react'
-import { useDiscord } from '../contexts/DiscordContext'
+import { useDiscord } from '../contexts/DiscordContextDirect'
 
 // 3D Background Orb
 function SetupOrb({ color }: { color: string }) {
@@ -150,7 +150,7 @@ export default function UserSetup() {
       setupDate: new Date().toISOString()
     }
     
-    localStorage.setItem('opure_user_preferences', JSON.stringify(userPrefs))
+    localStorage.setItem(`opure_user_preferences_${user?.id}`, JSON.stringify(userPrefs))
     localStorage.setItem('opure_theme', selectedTheme.id)
     
     setIsComplete(true)
