@@ -81,10 +81,46 @@ export const DiscordProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('🔑 Authorization result:', auth);
             
-            // Use your known user data since we can't do external calls
-            const knownUser = {
-              id: '1122867183727427644',
-              username: 'H4ZEY',
+            // Get REAL user data from Discord SDK
+            const realUser = {
+              id: auth.user?.id || 'unknown',
+              username: auth.user?.username || 'User',  
+              discriminator: auth.user?.discriminator || '0000',
+              avatar: auth.user?.avatar,
+              bot: false,
+              system: false,
+              mfa_enabled: false,
+              banner: auth.user?.banner,
+              accent_color: auth.user?.accent_color,
+              locale: 'en-US',
+              verified: true,
+              email: null,
+              flags: auth.user?.flags || 0,
+              premium_type: auth.user?.premium_type || 0,
+              public_flags: auth.user?.public_flags || 0,
+              global_name: auth.user?.global_name || auth.user?.username
+            };
+            
+            console.log('✅ Using real Discord user data for activity');
+            setUser(realUser);
+          } catch (authError) {
+            console.error('❌ Authorization failed:', authError);
+            throw authError;
+          }
+        }
+
+      } catch (error: any) {
+        console.error('❌ All authentication methods failed:', error);
+        
+        // Final fallback - try to get user from Discord SDK context
+        let fallbackUser = null;
+        if (discordSdk) {
+          try {
+            // Try to get current user from SDK context
+            const currentUser = discordSdk.commands?.getUser?.() || null;
+            fallbackUser = currentUser || {
+              id: 'guest_' + Date.now(),
+              username: 'DiscordUser', 
               discriminator: '0000',
               avatar: null,
               bot: false,
@@ -98,39 +134,48 @@ export const DiscordProvider = ({ children }: { children: ReactNode }) => {
               flags: 0,
               premium_type: 0,
               public_flags: 0,
-              global_name: 'H4ZEY'
+              global_name: 'DiscordUser'
             };
-            
-            console.log('✅ Using known user data for activity');
-            setUser(knownUser);
-          } catch (authError) {
-            console.error('❌ Authorization failed:', authError);
-            throw authError;
+          } catch (e) {
+            fallbackUser = {
+              id: 'guest_' + Date.now(),
+              username: 'DiscordUser',
+              discriminator: '0000',
+              avatar: null,
+              bot: false,
+              system: false,
+              mfa_enabled: false,
+              banner: null,
+              accent_color: null,
+              locale: 'en-US',
+              verified: true,
+              email: null,
+              flags: 0,
+              premium_type: 0,
+              public_flags: 0,
+              global_name: 'DiscordUser'
+            };
           }
+        } else {
+          fallbackUser = {
+            id: 'guest_' + Date.now(),
+            username: 'DiscordUser',
+            discriminator: '0000',
+            avatar: null,
+            bot: false,
+            system: false,
+            mfa_enabled: false,
+            banner: null,
+            accent_color: null,
+            locale: 'en-US',
+            verified: true,
+            email: null,
+            flags: 0,
+            premium_type: 0,
+            public_flags: 0,
+            global_name: 'DiscordUser'
+          };
         }
-
-      } catch (error: any) {
-        console.error('❌ All authentication methods failed:', error);
-        
-        // Final fallback - use known user data
-        const fallbackUser = {
-          id: '1122867183727427644',
-          username: 'H4ZEY',
-          discriminator: '0000',
-          avatar: null,
-          bot: false,
-          system: false,
-          mfa_enabled: false,
-          banner: null,
-          accent_color: null,
-          locale: 'en-US',
-          verified: true,
-          email: null,
-          flags: 0,
-          premium_type: 0,
-          public_flags: 0,
-          global_name: 'H4ZEY'
-        };
         
         console.log('🆘 Using emergency fallback user');
         setUser(fallbackUser);

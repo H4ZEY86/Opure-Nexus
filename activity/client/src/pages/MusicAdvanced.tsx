@@ -205,8 +205,10 @@ export default function MusicAdvanced() {
   // Real video player controls
   const updateVideoPlayer = () => {
     if (videoRef.current && track) {
-      const autoplay = isPlaying ? '&autoplay=1' : ''
-      videoRef.current.src = `https://www.youtube.com/embed/${track.videoId}?controls=1&modestbranding=1&rel=0${autoplay}`
+      const autoplay = isPlaying ? '&autoplay=1&mute=0' : '&autoplay=0&mute=1'
+      const timestamp = Date.now() // Force refresh
+      videoRef.current.src = `https://www.youtube.com/embed/${track.videoId}?controls=1&modestbranding=1&rel=0&enablejsapi=1${autoplay}&t=${timestamp}`
+      console.log('🎥 Video player updated:', videoRef.current.src)
     }
   }
 
@@ -330,10 +332,11 @@ export default function MusicAdvanced() {
               <div className="relative aspect-video bg-black rounded-2xl overflow-hidden">
                 <iframe
                   ref={videoRef}
-                  src={`https://www.youtube.com/embed/${track.videoId}?autoplay=${isPlaying ? 1 : 0}&controls=0&rel=0&modestbranding=1`}
+                  src={`https://www.youtube.com/embed/${track.videoId}?autoplay=${isPlaying ? 1 : 0}&controls=1&rel=0&modestbranding=1&enablejsapi=1&mute=${isPlaying ? 0 : 1}`}
                   className="w-full h-full"
-                  allow="autoplay; encrypted-media"
+                  allow="autoplay; encrypted-media; accelerometer; gyroscope; picture-in-picture"
                   allowFullScreen
+                  title={track.title}
                 />
                 
                 {/* Video Overlay Controls */}

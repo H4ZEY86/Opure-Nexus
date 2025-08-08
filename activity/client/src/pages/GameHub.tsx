@@ -166,15 +166,33 @@ export default function GameHub() {
   const startGame = async (gameInfo: GameInfo) => {
     if (!user) return
     
+    console.log('🎮 Starting game:', gameInfo.name)
     setSelectedGame(gameInfo)
     setIsPlaying(true)
     
-    // Launch actual playable games
+    // Launch actual playable games - NO CANVAS NEEDED
     if (gameInfo.id === 'puzzle_master') {
+      console.log('🧩 Loading Puzzle Master game...')
       setCurrentGameComponent(<PuzzleGameComponent />)
+      return // Exit early - no canvas needed for React component games
     }
-    // Add more games here as we implement them
     
+    // For future canvas-based games, add them here
+    console.log('⚠️ Game not yet implemented:', gameInfo.id)
+    
+    // Fallback for unimplemented games
+    setCurrentGameComponent(
+      <div className="flex items-center justify-center h-full text-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">{gameInfo.name}</h2>
+          <p className="text-white/60 mb-4">{gameInfo.description}</p>
+          <p className="text-yellow-400">🚧 Coming Soon!</p>
+        </div>
+      </div>
+    )
+    
+    /*
+    // Old canvas-based code - commented out
     try {
       // Get game canvas
       const canvas = document.getElementById('game-canvas') as HTMLCanvasElement
@@ -214,6 +232,7 @@ export default function GameHub() {
       setIsPlaying(false)
       setSelectedGame(null)
     }
+    */
   }
 
   const handleGameOver = async (gameStats: any) => {
