@@ -100,42 +100,61 @@ export default function BotCommands() {
 
   const executeCommand = async (command: BotCommand, example: string) => {
     setIsExecuting(true)
-    setCommandOutput(`Executing: ${example}`)
+    setCommandOutput(`🚀 Executing real bot command: ${example}`)
     
     try {
-      // Simulate command execution
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      const userId = user?.id || Date.now().toString()
       
-      // Generate realistic responses based on command
-      let response = ''
-      switch (command.name) {
-        case 'play':
-          response = `🎵 Now playing: ${example.replace('!play ', '')} in voice channel\n✅ Added to queue position #1`
-          break
-        case 'balance':
-          response = `💰 ${user?.username}'s Balance:\n💎 Fragments: 1,247\n⭐ Level: 8\n❤️ Lives: 3`
-          break
-        case 'daily':
-          response = `🎁 Daily Rewards Claimed!\n+150 fragments\n+50 XP\nStreak: 4 days`
-          break
-        case 'queue':
-          response = `🎵 Current Queue (3 songs):\n1. Lucid Dreams - Juice WRLD\n2. 500 Miles - The Proclaimers\n3. Someone You Loved - Lewis Capaldi`
-          break
-        case 'achievements':
-          response = `🏆 Achievements (5/20 unlocked):\n✅ First Song\n✅ Scottish Pride\n✅ Fragment Collector\n🔒 Rangers Supporter\n🔒 Daily Warrior`
-          break
-        case 'profile':
-          response = `👤 ${user?.username}'s Profile:\n💎 Fragments: 1,247\n⭐ Level: 8\n🎵 Songs Played: 127\n🏆 Achievements: 5/20`
-          break
-        default:
-          response = `✅ Command executed successfully: ${example}`
+      // Call REAL bot API
+      const response = await fetch(`https://api.opure.uk/api/real-bot-api?action=bot-command&userId=${userId}&command=${command.name}`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        // Show real bot response
+        setCommandOutput(`✅ REAL BOT RESPONSE:\n${data.result}`)
+        console.log('🤖 Real bot command executed:', data.result)
+      } else {
+        setCommandOutput(`❌ Bot command failed: ${data.error || 'Unknown error'}`)
       }
       
-      setCommandOutput(response)
     } catch (error) {
-      setCommandOutput(`❌ Command failed: ${error}`)
+      console.error('❌ API call failed:', error)
+      setCommandOutput(`❌ Connection failed: ${error.message}\nTrying fallback response...`)
+      
+      // Fallback response if API fails
+      setTimeout(() => {
+        const fallbackResponse = generateFallbackResponse(command, example)
+        setCommandOutput(`⚠️ FALLBACK MODE:\n${fallbackResponse}`)
+      }, 1000)
+      
     } finally {
       setIsExecuting(false)
+    }
+  }
+  
+  const generateFallbackResponse = (command: BotCommand, example: string) => {
+    switch (command.name) {
+      case 'play':
+        return `🎵 Now playing: ${example.replace('!play ', '')} in voice channel\n✅ Added to queue position #1`
+      case 'balance':
+        return `💰 ${user?.username}'s Balance:\n💎 Fragments: 1,247\n⭐ Level: 8\n❤️ Lives: 3`
+      case 'daily':
+        return `🎁 Daily Rewards Claimed!\n+150 fragments\n+50 XP\nStreak: 4 days`
+      case 'queue':
+        return `🎵 Current Queue (3 songs):\n1. Lucid Dreams - Juice WRLD\n2. 500 Miles - The Proclaimers\n3. Someone You Loved - Lewis Capaldi`
+      case 'achievements':
+        return `🏆 Achievements (5/20 unlocked):\n✅ First Song\n✅ Scottish Pride\n✅ Fragment Collector\n🔒 Rangers Supporter\n🔒 Daily Warrior`
+      case 'profile':
+        return `👤 ${user?.username}'s Profile:\n💎 Fragments: 1,247\n⭐ Level: 8\n🎵 Songs Played: 127\n🏆 Achievements: 5/20`
+      default:
+        return `✅ Command executed successfully: ${example}`
     }
   }
 

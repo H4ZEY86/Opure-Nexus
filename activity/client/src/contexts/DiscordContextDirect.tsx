@@ -47,15 +47,15 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
   }
 
   const createDirectUser = () => {
-    console.log('🚀 Creating direct user - skipping Discord SDK delays')
+    console.log('🚀 Creating direct user - using real Discord ID')
     
-    // Create immediate working user
+    // Use your REAL Discord ID and username
     const directUser = {
-      id: Date.now().toString(),
-      username: 'OpureUser',
+      id: '1122867183727427644', // Your real Discord ID
+      username: 'ctrl_alt_haze',
       discriminator: '0001',
       avatar: null,
-      global_name: 'Opure User',
+      global_name: 'ctrl_alt_haze',
       bot: false,
       avatar_decoration_data: null
     }
@@ -71,13 +71,12 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
     try {
       console.log('📊 Loading REAL user data via REAL BOT API...')
       
-      const response = await fetch('https://api.opure.uk/api/real-bot-api', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'user-sync',
-          userId: userId
-        })
+      const response = await fetch(`https://api.opure.uk/api/real-bot-api?action=user-sync&userId=${userId}`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
       })
       
       const data = await response.json()
