@@ -275,16 +275,6 @@ export default function MusicAdvanced() {
     }
   }
 
-  const nextTrack = () => {
-    setCurrentTrack((prev) => (prev + 1) % queue.length)
-    setProgress(0)
-  }
-
-  const prevTrack = () => {
-    setCurrentTrack((prev) => (prev === 0 ? queue.length - 1 : prev - 1))
-    setProgress(0)
-  }
-
   const toggleDJMode = () => {
     setDjMode(!djMode)
     if (!djMode) {
@@ -557,4 +547,5 @@ export default function MusicAdvanced() {
       <QueuePanel isVisible={showQueue} queue={queue} onClose={() => setShowQueue(false)} />
     </div>
   )
+
 }
