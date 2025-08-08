@@ -46,11 +46,11 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
     // Authentication will happen in useEffect
   }
 
-  const createDirectUser = () => {
-    console.log('🚀 Creating direct user - using real Discord ID')
+  const createFallbackUser = () => {
+    console.log('⚠️ Creating fallback user - Discord OAuth2 failed')
     
-    // Use your REAL Discord ID and username
-    const directUser = {
+    // Fallback to your Discord ID if OAuth2 fails
+    const fallbackUser = {
       id: '1122867183727427644', // Your real Discord ID
       username: 'ctrl_alt_haze',
       discriminator: '0001',
@@ -60,11 +60,11 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
       avatar_decoration_data: null
     }
     
-    console.log('✅ DIRECT USER CREATED:', directUser.username)
-    setUser(directUser)
+    console.log('✅ FALLBACK USER CREATED:', fallbackUser.username)
+    setUser(fallbackUser)
     
     // Load user data immediately
-    loadUserDataDirect(directUser.id)
+    loadUserDataDirect(fallbackUser.id)
   }
 
   const loadUserDataDirect = async (userId: string) => {
@@ -75,8 +75,11 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
         method: 'GET',
         headers: { 
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
+          'Cache-Control': 'no-cache',
+          'Content-Type': 'application/json'
+        },
+        credentials: 'omit', // Fix cookie warnings
+        mode: 'cors'        // Fix CORS issues
       })
       
       const data = await response.json()
@@ -128,61 +131,108 @@ export const DiscordProvider: React.FC<DiscordProviderProps> = ({ children }) =>
 
   useEffect(() => {
     let mounted = true
+    let retryCount = 0
+    const maxRetries = 2
     
     const initializeDiscord = async () => {
-      console.log('🚀 Starting Discord Activity initialization...')
+      console.log('🚀 Starting Discord OAuth2 initialization...')
       
-      // Set a 3-second timeout for Discord SDK
+      // Set a 5-second timeout for Discord SDK with retries
       const timeoutId = setTimeout(() => {
         if (mounted) {
-          console.log('⏰ Discord SDK timeout - proceeding without Discord integration')
-          createDirectUser()
+          console.log('⏰ Discord OAuth2 timeout - using fallback')
+          createFallbackUser()
           setReady(true)
           setIsLoading(false)
         }
-      }, 3000) // 3 seconds max
+      }, 5000)
       
       try {
-        console.log('🔄 Attempting Discord SDK initialization...')
-        const sdk = new DiscordSDK('1388207626944249856')
+        console.log('🔄 Attempting Discord SDK initialization with OAuth2...')
         
-        // Try to initialize SDK
+        // Initialize Discord SDK with proper client ID
+        const sdk = new DiscordSDK('1388207626944249856', {
+          // Fix cookie warnings with proper options
+          disableConsoleLogOverride: false,
+        })
+        
+        // Wait for SDK ready
         await sdk.ready()
         
         if (!mounted) return
         
-        clearTimeout(timeoutId)
-        console.log('✅ Discord SDK ready!')
+        console.log('✅ Discord SDK ready! Starting OAuth2 flow...')
         setDiscordSdk(sdk)
         
-        // Try to authenticate
+        // Proper OAuth2 authentication with expanded scopes
         try {
           const authResponse = await sdk.commands.authenticate({
-            scopes: ['identify'],
+            scopes: [
+              'identify',           // Get user info
+              'guilds',            // Access guilds
+              'voice',             // Voice channel access
+              'applications.commands'  // Slash commands
+            ],
+            // Fix CORS/cookie issues
+            exchange: true,
+            returnScopes: true,
           })
           
           if (authResponse?.user && mounted) {
-            console.log('🎉 Discord authentication successful:', authResponse.user.username)
+            clearTimeout(timeoutId)
+            console.log('🎉 REAL Discord OAuth2 SUCCESS:', {
+              username: authResponse.user.username,
+              id: authResponse.user.id,
+              avatar: authResponse.user.avatar
+            })
+            
+            // Set real authenticated user
             setUser(authResponse.user)
-            loadUserDataDirect(authResponse.user.id)
+            
+            // Load their real data
+            await loadUserDataDirect(authResponse.user.id)
+            
+            setReady(true)
+            setIsLoading(false)
+            
           } else {
-            createDirectUser()
+            throw new Error('No user data returned from OAuth2')
           }
+          
         } catch (authError) {
-          console.log('⚠️ Discord auth failed, using direct user')
-          createDirectUser()
-        }
-        
-        if (mounted) {
+          console.error('❌ Discord OAuth2 failed:', authError)
+          
+          // Retry OAuth2 if possible
+          if (retryCount < maxRetries) {
+            retryCount++
+            console.log(`🔄 Retrying Discord OAuth2 (${retryCount}/${maxRetries})...`)
+            setTimeout(() => initializeDiscord(), 1000)
+            return
+          }
+          
+          // Fall back to known user
+          console.log('⚠️ OAuth2 retries exhausted, using fallback')
+          clearTimeout(timeoutId)
+          createFallbackUser()
           setReady(true)
           setIsLoading(false)
         }
         
       } catch (sdkError) {
-        console.log('⚠️ Discord SDK failed completely:', sdkError.message)
+        console.error('❌ Discord SDK initialization failed:', sdkError)
+        
         if (mounted) {
           clearTimeout(timeoutId)
-          createDirectUser()
+          
+          // Retry SDK initialization if possible  
+          if (retryCount < maxRetries) {
+            retryCount++
+            console.log(`🔄 Retrying SDK initialization (${retryCount}/${maxRetries})...`)
+            setTimeout(() => initializeDiscord(), 1000)
+            return
+          }
+          
+          createFallbackUser()
           setReady(true)
           setIsLoading(false)
         }

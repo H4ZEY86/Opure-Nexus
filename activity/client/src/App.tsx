@@ -100,41 +100,69 @@ export default function App() {
 
       {/* Main Content */}
       <div className="relative z-10 min-h-screen">
-        {/* Glass Navigation */}
-        <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/5 border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-center space-x-2"
-              >
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">O</span>
-                </div>
-                <span className="text-white font-semibold text-lg">Opure</span>
+        {/* Edge Hover Navigation */}
+        {/* Top Edge - Logo and User */}
+        <motion.div
+          className="fixed top-0 left-0 right-0 z-50 h-2 hover:h-16 transition-all duration-300 group cursor-pointer"
+          whileHover={{ height: 64 }}
+        >
+          <div className="absolute inset-0 backdrop-blur-xl bg-white/5 border-b border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="absolute inset-0 flex items-center justify-between px-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <motion.div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">O</span>
+              </div>
+              <span className="text-white font-semibold text-lg">Opure</span>
+            </motion.div>
+            
+            {user && (
+              <motion.div className="flex items-center space-x-3">
+                <img
+                  src={user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64` : '/default-avatar.png'}
+                  alt={user.username}
+                  className="w-8 h-8 rounded-full border-2 border-white/20"
+                />
+                <span className="text-white/90 text-sm font-medium">{user.username}</span>
               </motion.div>
-              
-              {user && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center space-x-3"
-                >
-                  <img
-                    src={user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64` : '/default-avatar.png'}
-                    alt={user.username}
-                    className="w-8 h-8 rounded-full border-2 border-white/20"
-                  />
-                  <span className="text-white/90 text-sm font-medium">{user.username}</span>
-                </motion.div>
-              )}
-            </div>
+            )}
           </div>
-        </nav>
+        </motion.div>
+        
+        {/* Left Edge - Main Navigation */}
+        <motion.div
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-2 hover:w-64 h-96 transition-all duration-300 group cursor-pointer"
+          whileHover={{ width: 256 }}
+        >
+          <div className="absolute inset-0 backdrop-blur-xl bg-white/5 border-r border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-r-2xl" />
+          <div className="absolute inset-0 flex flex-col justify-center space-y-3 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            {[
+              { path: '/', icon: '🏠', label: 'Home' },
+              { path: '/music', icon: '🎵', label: 'Music' },
+              { path: '/commands', icon: '⚡', label: 'Commands' },
+              { path: '/games', icon: '🎮', label: 'Games' },
+              { path: '/ai-chat', icon: '💬', label: 'AI Chat' },
+              { path: '/economy', icon: '💰', label: 'Economy' }
+            ].map(({ path, icon, label }) => (
+              <Link key={path} to={path}>
+                <motion.div
+                  whileHover={{ scale: 1.05, x: 10 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${
+                    location.pathname === path
+                      ? 'bg-white/20 text-white shadow-lg'
+                      : 'text-white/60 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="text-xl">{icon}</span>
+                  <span className="text-sm font-medium whitespace-nowrap">{label}</span>
+                </motion.div>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
 
         {/* Page Content with Smooth Transitions */}
-        <div className="pt-16 pb-safe">
+        <div className="pt-2 pb-safe">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -162,34 +190,6 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* Bottom Navigation for Mobile */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/5 border-t border-white/10 pb-safe">
-          <div className="flex items-center justify-around py-2">
-            {[
-              { path: '/', icon: '🏠', label: 'Home' },
-              { path: '/music', icon: '🎵', label: 'Music' },
-              { path: '/commands', icon: '⚡', label: 'Commands' },
-              { path: '/games', icon: '🎮', label: 'Games' },
-              { path: '/ai-chat', icon: '💬', label: 'AI Chat' },
-              { path: '/economy', icon: '💰', label: 'Economy' }
-            ].filter(item => !item.adminOnly || (user && user.admin)).map(({ path, icon, label }) => (
-              <Link key={path} to={path}>
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`flex flex-col items-center space-y-1 px-4 py-2 rounded-xl transition-colors ${
-                    location.pathname === path
-                      ? 'bg-white/10 text-white'
-                      : 'text-white/60 hover:text-white/80'
-                  }`}
-                >
-                  <span className="text-xl">{icon}</span>
-                  <span className="text-xs font-medium">{label}</span>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
-        </nav>
         
         {/* Debug Overlay - Only in Discord Activity */}
         <DebugOverlay />

@@ -201,5 +201,3 @@ Toggle between 2D and 3D modes using the interface toggle button.
 - Proper permissions for each command tier
 
 ---
-
-*This implementation makes Opure.exe not just another Discord bot, but a revolutionary AI-powered community platform that will dominate the Discord bot ecosystem.*

@@ -110,8 +110,11 @@ export default function BotCommands() {
         method: 'GET',
         headers: { 
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
+          'Cache-Control': 'no-cache',
+          'Content-Type': 'application/json'
+        },
+        credentials: 'omit', // Fix cookie warnings
+        mode: 'cors'        // Fix CORS issues
       })
       
       const data = await response.json()

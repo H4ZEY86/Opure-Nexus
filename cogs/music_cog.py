@@ -2181,17 +2181,33 @@ class MusicInstance:
         try:
             while not self.bot.is_closed():
                 try:
-                    next_song_data = await asyncio.wait_for(self.queue.get(), timeout=900.0)
+                    # Extended timeout for playlists (60 minutes vs 15 minutes)
+                    timeout_duration = 3600.0 if hasattr(self, 'current_playlist_info') and self.current_playlist_info else 900.0
+                    next_song_data = await asyncio.wait_for(self.queue.get(), timeout=timeout_duration)
                 except asyncio.TimeoutError:
-                    self.bot.add_log(f"Music instance in {self.voice_channel.name} idle for 15 minutes, disconnecting.")
+                    timeout_minutes = int(timeout_duration / 60)
+                    self.bot.add_log(f"Music instance in {self.voice_channel.name} idle for {timeout_minutes} minutes, disconnecting.")
                     try:
-                        timeout_msg = await self.text_channel.send("🎵 Leaving due to 15 minutes of inactivity.")
+                        timeout_msg = await self.text_channel.send(f"🎵 Leaving due to {timeout_minutes} minutes of inactivity.")
                         self.instance_messages.append(timeout_msg)
                     except:
                         pass
                     break
 
                 if not self.voice_client or not self.voice_client.is_connected():
+                    # Try to reconnect if we're in the middle of a playlist
+                    if (hasattr(self, 'current_playlist_info') and self.current_playlist_info and 
+                        hasattr(self, 'playback_index') and self.playback_index >= 0):
+                        self.bot.add_log(f"Voice disconnected during playlist, attempting reconnect...")
+                        try:
+                            # Try to reconnect to the same voice channel
+                            if self.voice_channel:
+                                self.voice_client = await self.voice_channel.connect(self_deaf=True)
+                                self.bot.add_log(f"✅ Reconnected to {self.voice_channel.name}")
+                                continue  # Continue the player loop
+                        except Exception as e:
+                            self.bot.add_error(f"Failed to reconnect to voice: {e}")
+                    
                     self.bot.add_log(f"Player for {self.guild.name} stopping, VC disconnected.")
                     break
                 

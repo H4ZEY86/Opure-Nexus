@@ -197,15 +197,42 @@ export default function MusicAdvanced() {
   const [djMode, setDjMode] = useState(false)
   const [videoMode, setVideoMode] = useState(true)
   const videoRef = useRef<HTMLIFrameElement>(null)
+  const [youtubePlayer, setYoutubePlayer] = useState<any>(null)
+  const [duration, setDuration] = useState(0)
 
   const track = queue[currentTrack]
+
+  // Real video player controls
+  const updateVideoPlayer = () => {
+    if (videoRef.current && track) {
+      const autoplay = isPlaying ? '&autoplay=1' : ''
+      videoRef.current.src = `https://www.youtube.com/embed/${track.videoId}?controls=1&modestbranding=1&rel=0${autoplay}`
+    }
+  }
+
+  const nextTrack = () => {
+    setCurrentTrack((prev) => (prev + 1) % queue.length)
+    setProgress(0)
+    setTimeout(updateVideoPlayer, 100)
+  }
+
+  const prevTrack = () => {
+    setCurrentTrack((prev) => (prev - 1 + queue.length) % queue.length)
+    setProgress(0)
+    setTimeout(updateVideoPlayer, 100)
+  }
+
+  // Update video when track changes
+  useEffect(() => {
+    updateVideoPlayer()
+  }, [currentTrack, isPlaying])
 
   // Simulate progress
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isPlaying) {
       interval = setInterval(() => {
-        setProgress(prev => prev + 1)
+        setProgress(prev => prev + 0.5)
       }, 1000)
     }
     return () => clearInterval(interval)

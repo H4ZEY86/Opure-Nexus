@@ -6,11 +6,8 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion'
-import { useDiscord } from '../hooks/useDiscord'
-import { GameEngine } from '../engine/GameEngine'
-import PuzzleGame from '../games/PuzzleGame'
-import ActionGame from '../games/ActionGame'
-import RewardsSystem from '../systems/RewardsSystem'
+import { useDiscord } from '../contexts/DiscordContextDirect'
+import PuzzleGameComponent from '../components/games/PuzzleGameComponent'
 
 interface GameInfo {
   id: string
@@ -95,6 +92,7 @@ export default function GameHub() {
   const [selectedGame, setSelectedGame] = useState<GameInfo | null>(null)
   const [currentGame, setCurrentGame] = useState<GameEngine | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [currentGameComponent, setCurrentGameComponent] = useState<React.ReactNode | null>(null)
   const [playerStats, setPlayerStats] = useState<PlayerStats>({
     level: 1,
     experience: 0,
@@ -170,6 +168,12 @@ export default function GameHub() {
     
     setSelectedGame(gameInfo)
     setIsPlaying(true)
+    
+    // Launch actual playable games
+    if (gameInfo.id === 'puzzle_master') {
+      setCurrentGameComponent(<PuzzleGameComponent />)
+    }
+    // Add more games here as we implement them
     
     try {
       // Get game canvas
@@ -281,16 +285,32 @@ export default function GameHub() {
   const featuredGames = useMemo(() => GAMES.filter(game => game.featured), [])
   const currentFeaturedGame = featuredGames[carouselIndex % featuredGames.length]
 
-  if (isPlaying && selectedGame) {
-    return <GameView game={selectedGame} onExit={() => {
-      if (currentGame) {
-        currentGame.stop()
-        currentGame.destroy()
-        setCurrentGame(null)
-      }
-      setIsPlaying(false)
-      setSelectedGame(null)
-    }} />
+  if (isPlaying && currentGameComponent) {
+    return (
+      <div className="fixed inset-0 z-50">
+        {/* Game Exit Button */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => {
+            setIsPlaying(false)
+            setSelectedGame(null)
+            setCurrentGameComponent(null)
+            if (currentGame) {
+              currentGame.stop()
+              currentGame.destroy()
+              setCurrentGame(null)
+            }
+          }}
+          className="absolute top-4 right-4 z-50 px-4 py-2 bg-red-500/80 hover:bg-red-500 text-white rounded-lg backdrop-blur-lg transition-all"
+        >
+          ← Back to Games
+        </motion.button>
+        
+        {/* Render the actual game */}
+        {currentGameComponent}
+      </div>
+    )
   }
 
   return (
