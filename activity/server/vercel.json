@@ -61,7 +61,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'self' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com;"
+          "value": "default-src 'self' https:; connect-src 'self' https: wss:; frame-ancestors 'self' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:;"
         },
         {
           "key": "Referrer-Policy",
@@ -78,7 +78,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'self' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com;"
+          "value": "default-src 'self' https:; connect-src 'self' https: wss:; frame-ancestors 'self' https://discord.com https://*.discord.com https://activities.discord.com https://*.activities.discord.com https://*.discordsays.com; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:;"
         }
       ]
     }
