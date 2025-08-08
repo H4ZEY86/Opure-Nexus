@@ -1,4 +1,11 @@
+import { createClient } from '@supabase/supabase-js'
+
 // Supabase client configuration
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
 export interface LeaderboardEntry {
   id: string
   user_id: string
@@ -18,129 +25,214 @@ export interface UserGameStats {
   best_score: number
   favorite_game: string
   last_played: string
+  discord_avatar?: string
 }
 
-// Mock Supabase functions for now - will be replaced with real Supabase client
+// Real Supabase functions
 export class GameDatabase {
   static async saveScore(entry: Omit<LeaderboardEntry, 'id' | 'timestamp'>) {
     console.log('🏆 Saving score to Supabase:', entry)
     
-    // Simulate API call
-    const response = {
-      success: true,
-      data: {
-        ...entry,
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString()
+    try {
+      const { data, error } = await supabase
+        .from('leaderboard')
+        .insert([entry])
+        .select()
+      
+      if (error) {
+        console.error('❌ Supabase insert error:', error)
+        throw error
+      }
+      
+      console.log('✅ Score saved successfully:', data)
+      
+      // Update user stats
+      await this.updateUserStats(entry.user_id, entry.username, entry.score, entry.game_name, entry.discord_avatar)
+      
+      // Trigger bot webhook for leaderboard updates
+      await this.triggerBotLeaderboardUpdate(entry.game_id)
+      
+      return {
+        success: true,
+        data: data?.[0] || entry
+      }
+    } catch (error) {
+      console.error('❌ Failed to save score:', error)
+      return {
+        success: false,
+        error: error.message
       }
     }
-    
-    // TODO: Replace with real Supabase insert
-    /*
-    const { data, error } = await supabase
-      .from('leaderboard')
-      .insert([entry])
-      .select()
-    */
-    
-    // Trigger bot webhook for leaderboard updates
-    if (response.success) {
-      this.triggerBotLeaderboardUpdate(entry.game_id)
-    }
-    
-    return response
   }
 
   static async getLeaderboard(gameId?: string, limit = 10) {
     console.log('📊 Fetching leaderboard from Supabase')
     
-    // Mock data for now
-    const mockLeaderboard: LeaderboardEntry[] = [
-      {
-        id: '1',
-        user_id: '1122867183727427644',
-        username: 'SpaceAce',
-        game_id: 'space_race',
-        game_name: 'Space Race 3D',
-        score: 15420,
-        timestamp: new Date().toISOString()
-      },
-      {
-        id: '2',
-        user_id: '2233445566778899',
-        username: 'CubeMaster',
-        game_id: 'cube_dash',
-        game_name: 'Cube Dash',
-        score: 14890,
-        timestamp: new Date().toISOString()
-      },
-      {
-        id: '3',
-        user_id: '3344556677889900',
-        username: 'BallWizard',
-        game_id: 'ball_bouncer',
-        game_name: 'Ball Bouncer',
-        score: 13650,
-        timestamp: new Date().toISOString()
-      },
-      {
-        id: '4',
-        user_id: '4455667788990011',
-        username: 'ColorKing',
-        game_id: 'color_matcher',
-        game_name: 'Color Matcher 3D',
-        score: 12980,
-        timestamp: new Date().toISOString()
+    try {
+      let query = supabase
+        .from('leaderboard')
+        .select('*')
+        .order('score', { ascending: false })
+        .limit(limit)
+      
+      if (gameId) {
+        query = query.eq('game_id', gameId)
       }
-    ]
-    
-    // TODO: Replace with real Supabase query
-    /*
-    let query = supabase
-      .from('leaderboard')
-      .select('*')
-      .order('score', { ascending: false })
-      .limit(limit)
-    
-    if (gameId) {
-      query = query.eq('game_id', gameId)
-    }
-    
-    const { data, error } = await query
-    */
-    
-    return {
-      success: true,
-      data: mockLeaderboard.slice(0, limit)
+      
+      const { data, error } = await query
+      
+      if (error) {
+        console.error('❌ Supabase query error:', error)
+        throw error
+      }
+      
+      console.log('✅ Leaderboard fetched:', data?.length, 'entries')
+      
+      return {
+        success: true,
+        data: data || []
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch leaderboard:', error)
+      
+      // Fallback to mock data if Supabase fails
+      const mockLeaderboard: LeaderboardEntry[] = [
+        {
+          id: '1',
+          user_id: 'demo_user_1',
+          username: 'SpaceAce',
+          game_id: 'space_race',
+          game_name: 'Space Race 3D',
+          score: 15420,
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: '2',
+          user_id: 'demo_user_2',
+          username: 'CubeMaster',
+          game_id: 'cube_dash',
+          game_name: 'Cube Dash',
+          score: 14890,
+          timestamp: new Date().toISOString()
+        }
+      ]
+      
+      return {
+        success: true,
+        data: mockLeaderboard.slice(0, limit)
+      }
     }
   }
 
   static async getUserStats(userId: string) {
     console.log('👤 Fetching user stats from Supabase')
     
-    // Mock user stats
-    const mockStats: UserGameStats = {
-      user_id: userId,
-      username: 'Player',
-      total_games: 42,
-      total_score: 125430,
-      best_score: 15420,
-      favorite_game: 'Space Race 3D',
-      last_played: new Date().toISOString()
+    try {
+      const { data, error } = await supabase
+        .from('user_game_stats')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('❌ Supabase user stats error:', error)
+        throw error
+      }
+      
+      if (!data) {
+        // Create default stats for new user
+        const defaultStats: Omit<UserGameStats, 'user_id'> = {
+          username: 'New Player',
+          total_games: 0,
+          total_score: 0,
+          best_score: 0,
+          favorite_game: '',
+          last_played: new Date().toISOString()
+        }
+        
+        return {
+          success: true,
+          data: { user_id: userId, ...defaultStats }
+        }
+      }
+      
+      console.log('✅ User stats fetched:', data)
+      
+      return {
+        success: true,
+        data
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch user stats:', error)
+      
+      // Fallback stats
+      const fallbackStats: UserGameStats = {
+        user_id: userId,
+        username: 'Player',
+        total_games: 0,
+        total_score: 0,
+        best_score: 0,
+        favorite_game: '',
+        last_played: new Date().toISOString()
+      }
+      
+      return {
+        success: true,
+        data: fallbackStats
+      }
     }
-    
-    // TODO: Replace with real Supabase query
-    /*
-    const { data, error } = await supabase
-      .from('user_game_stats')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-    */
-    
-    return {
-      success: true,
-      data: mockStats
+  }
+
+  static async updateUserStats(userId: string, username: string, newScore: number, gameName: string, avatar?: string) {
+    try {
+      // Get existing stats
+      const { data: existingStats } = await supabase
+        .from('user_game_stats')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+      
+      if (existingStats) {
+        // Update existing stats
+        const updatedStats = {
+          username,
+          total_games: existingStats.total_games + 1,
+          total_score: existingStats.total_score + newScore,
+          best_score: Math.max(existingStats.best_score, newScore),
+          favorite_game: gameName, // Could be more sophisticated
+          last_played: new Date().toISOString(),
+          discord_avatar: avatar
+        }
+        
+        const { error } = await supabase
+          .from('user_game_stats')
+          .update(updatedStats)
+          .eq('user_id', userId)
+        
+        if (error) throw error
+      } else {
+        // Create new user stats
+        const newStats: UserGameStats = {
+          user_id: userId,
+          username,
+          total_games: 1,
+          total_score: newScore,
+          best_score: newScore,
+          favorite_game: gameName,
+          last_played: new Date().toISOString(),
+          discord_avatar: avatar
+        }
+        
+        const { error } = await supabase
+          .from('user_game_stats')
+          .insert([newStats])
+        
+        if (error) throw error
+      }
+      
+      console.log('✅ User stats updated')
+    } catch (error) {
+      console.error('❌ Failed to update user stats:', error)
     }
   }
 
