@@ -21,7 +21,7 @@ This is the **legendary backup vault** of the complete Opure Discord bot ecosyst
 - **Node.js** - JavaScript on the server side
 - **Vercel** - Serverless deployment magic
 - **AI/ML** - Because robots are cool
-- **SQLite** - Database simplicity
+- **PostgreSQL** - Database simplicity
 
 ## 🏛️ Repository Structure:
 ```
@@ -36,7 +36,7 @@ This is the **legendary backup vault** of the complete Opure Discord bot ecosyst
 ```
 
 ## 🎉 Why "Nexus"?
-Because this isn't just code - it's a **nexus** of creativity, technology, and pure digital awesome sauce\! A central hub where all the Opure ecosystem components unite in perfect harmony.
+Because this isn't just code - it's a **nexus** of creativity, technology, and pure digital awesome sauce! A central hub where all the Opure ecosystem components unite in perfect harmony.
 
 ---
 *Built with ❤️, ☕, and probably too much Red Bull*
