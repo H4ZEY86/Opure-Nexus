@@ -1,32 +1,60 @@
-// This is a serverless function to handle the token exchange
+// Discord OAuth2 token exchange endpoint for Activity authentication
+import fetch from 'node-fetch'
+
 export default async function handler(req, res) {
+  // CORS headers for Discord Activity
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+  
   if (req.method !== 'POST') {
-    return res.status(405).send({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { code } = req.body;
+  const { code } = req.body
 
   if (!code) {
-    return res.status(400).send({ error: 'Code is required' });
+    return res.status(400).json({ error: 'Authorization code is required' })
   }
 
   try {
+    console.log('🔑 Exchanging Discord OAuth2 code for access token...')
+
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: process.env.VITE_DISCORD_CLIENT_ID,
-        client_secret: process.env.DISCORD_CLIENT_SECRET, // This MUST be a server-side environment variable
+        client_id: process.env.DISCORD_CLIENT_ID || '1388207626944249856',
+        client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: 'authorization_code',
-        code,
-      }),
-    });
+        code: code,
+        redirect_uri: 'https://opure.uk/auth/callback'
+      })
+    })
 
-    const data = await tokenResponse.json();
-    res.status(200).send(data);
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error('❌ Discord token exchange failed:', errorText)
+      return res.status(tokenResponse.status).json({ 
+        error: 'Discord token exchange failed',
+        details: errorText 
+      })
+    }
+
+    const data = await tokenResponse.json()
+    console.log('✅ Discord OAuth2 token exchange successful!')
+    
+    res.status(200).json(data)
 
   } catch (error) {
-    console.error('Error exchanging token:', error);
-    res.status(500).send({ error: 'Internal server error' });
+    console.error('❌ Token exchange error:', error)
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    })
   }
 }
