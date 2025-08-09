@@ -332,6 +332,58 @@ class OpureBot(commands.Bot):
         except Exception:
             pass  # Column already exists
         
+        # Create database triggers for real-time sync events
+        try:
+            # Trigger for user stats changes (immediate sync to Activity and Dashboard)
+            await self.db.execute("""
+                CREATE TRIGGER IF NOT EXISTS user_stats_sync_trigger
+                    AFTER UPDATE ON user_stats
+                    FOR EACH ROW
+                BEGIN
+                    INSERT INTO sync_events (
+                        event_type, user_id, data, timestamp, priority
+                    ) VALUES (
+                        'user_stats_update', 
+                        NEW.user_id, 
+                        json_object(
+                            'fragments_old', OLD.fragments,
+                            'fragments_new', NEW.fragments,
+                            'commands_old', OLD.commands_used,
+                            'commands_new', NEW.commands_used
+                        ),
+                        unixepoch(),
+                        'high'
+                    );
+                END;
+            """)
+            
+            # Trigger for economy transactions (immediate sync)
+            await self.db.execute("""
+                CREATE TRIGGER IF NOT EXISTS economy_sync_trigger
+                    AFTER UPDATE ON players
+                    FOR EACH ROW
+                    WHEN OLD.fragments != NEW.fragments
+                BEGIN
+                    INSERT INTO sync_events (
+                        event_type, user_id, data, timestamp, priority
+                    ) VALUES (
+                        'economy_update',
+                        NEW.user_id,
+                        json_object(
+                            'old_balance', OLD.fragments,
+                            'new_balance', NEW.fragments,
+                            'change', NEW.fragments - OLD.fragments
+                        ),
+                        unixepoch(),
+                        'high'
+                    );
+                END;
+            """)
+            
+            self.add_log("✓ Database triggers created for real-time sync")
+        except Exception as e:
+            self.add_error(f"Failed to create database triggers: {e}")
+        
         await self.db.commit()
         self.add_log("✓ Database connection established and tables verified.")
 
@@ -356,6 +408,9 @@ class OpureBot(commands.Bot):
         # Initialize sync integration system
         try:
             self.sync_integration = SyncIntegrationLayer(self, self.sync_manager)
+            
+            # Start real-time event monitoring task
+            asyncio.create_task(self.monitor_sync_events())
             await self.sync_integration.initialize()
             await self.sync_manager.start()
             self.add_log("✅ Real-time synchronization system initialized and started")
@@ -859,6 +914,79 @@ class OpureBot(commands.Bot):
             except Exception as e:
                 self.add_error(f"Failed to post to {channel_name}: {e}")
 
+    async def monitor_sync_events(self):
+        """Monitor database for sync events and broadcast immediately"""
+        self.add_log("🔄 Starting real-time sync event monitor...")
+        last_checked = 0
+        
+        while True:
+            try:
+                # Check for new sync events since last check
+                cursor = await self.db.execute("""
+                    SELECT event_type, user_id, data, timestamp, priority
+                    FROM sync_events 
+                    WHERE timestamp > ?
+                    ORDER BY timestamp ASC
+                    LIMIT 100
+                """, (last_checked,))
+                events = await cursor.fetchall()
+                
+                for event in events:
+                    event_type, user_id, data_json, timestamp, priority = event
+                    
+                    try:
+                        # Parse JSON data
+                        data = json.loads(data_json) if data_json else {}
+                        
+                        # Create event data
+                        event_data = {
+                            'event_type': event_type,
+                            'user_id': user_id,
+                            'data': data,
+                            'timestamp': timestamp,
+                            'priority': priority
+                        }
+                        
+                        # Broadcast to WebSocket channels immediately (0-latency)
+                        if event_type in ['economy_update', 'user_stats_update']:
+                            await self.websocket_broadcast('economy_transactions', 'realtime_update', event_data)
+                            await self.websocket_broadcast('activity_games', 'realtime_update', event_data)
+                        elif event_type.startswith('ai_'):
+                            await self.websocket_broadcast('ai_responses', 'realtime_update', event_data)
+                        elif event_type.startswith('music_'):
+                            await self.websocket_broadcast('music_playback', 'realtime_update', event_data)
+                    
+                    except Exception as e:
+                        self.add_error(f"Failed to broadcast sync event: {e}")
+                    
+                    last_checked = max(last_checked, timestamp)
+                
+                # Clean up old events (keep last 1000)
+                if events:
+                    await self.db.execute("""
+                        DELETE FROM sync_events 
+                        WHERE timestamp < (
+                            SELECT timestamp FROM sync_events 
+                            ORDER BY timestamp DESC LIMIT 1000, 1
+                        )
+                    """)
+                    await self.db.commit()
+                
+                # Check every 100ms for true real-time sync
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                self.add_error(f"Sync event monitor error: {e}")
+                await asyncio.sleep(1)
+    
+    async def websocket_broadcast(self, channel: str, event_type: str, data: dict):
+        """Broadcast to WebSocket server if available"""
+        try:
+            if hasattr(self, 'websocket_server') and self.websocket_server:
+                await self.websocket_server.broadcast_to_channel(channel, event_type, data)
+        except Exception as e:
+            self.add_error(f"WebSocket broadcast failed: {e}")
+    
     async def gather_self_knowledge(self):
         """Collect comprehensive data about Opure's own systems and capabilities"""
         try:

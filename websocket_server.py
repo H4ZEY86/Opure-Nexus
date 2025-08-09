@@ -51,6 +51,17 @@ class DashboardWebSocketServer:
         self.last_performance_update = 0
         self.performance_cache = {}
         
+        # Event-driven architecture with channels
+        self.event_channels = {
+            'bot_commands': set(),
+            'activity_games': set(), 
+            'ai_responses': set(),
+            'economy_transactions': set(),
+            'music_playback': set(),
+            'performance_updates': set(),
+            'dashboard_all': set()  # Clients that want all events
+        }
+        
         # Initialize database connection
         self.init_database()
         
@@ -70,19 +81,33 @@ class DashboardWebSocketServer:
         except Exception as e:
             logger.error(f"❌ Database initialization failed: {e}")
     
-    async def register_client(self, websocket: WebSocketServerProtocol):
-        """Register a new WebSocket client"""
+    async def register_client(self, websocket: WebSocketServerProtocol, channels: list = None):
+        """Register a new WebSocket client with optional channel subscriptions"""
         self.connected_clients.add(websocket)
         client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
         logger.info(f"🔌 Client connected: {client_info} (Total: {len(self.connected_clients)})")
+        
+        # Subscribe to requested channels (default to dashboard_all)
+        if channels is None:
+            channels = ['dashboard_all']
+        
+        for channel in channels:
+            if channel in self.event_channels:
+                self.event_channels[channel].add(websocket)
+                logger.info(f"📡 Client {client_info} subscribed to channel: {channel}")
         
         # Send initial data to new client
         await self.send_initial_data(websocket)
     
     async def unregister_client(self, websocket: WebSocketServerProtocol):
-        """Unregister a WebSocket client"""
+        """Unregister a WebSocket client from all channels"""
         self.connected_clients.discard(websocket)
         client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+        
+        # Remove from all event channels
+        for channel_name, channel_clients in self.event_channels.items():
+            channel_clients.discard(websocket)
+        
         logger.info(f"🔌 Client disconnected: {client_info} (Total: {len(self.connected_clients)})")
     
     async def send_initial_data(self, websocket: WebSocketServerProtocol):
@@ -146,6 +171,40 @@ class DashboardWebSocketServer:
         # Clean up disconnected clients
         for ws in disconnected_clients:
             self.connected_clients.discard(ws)
+    
+    async def broadcast_to_channel(self, channel: str, event_type: str, data: Any):
+        """Broadcast data immediately to specific channel subscribers (0-latency)"""
+        if channel not in self.event_channels or not self.event_channels[channel]:
+            return
+        
+        message = json.dumps({
+            "type": event_type,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+            "channel": channel
+        })
+        
+        # Send to channel subscribers concurrently
+        disconnected_clients = set()
+        
+        async def send_to_client(websocket):
+            try:
+                await websocket.send(message)
+            except websockets.exceptions.ConnectionClosed:
+                disconnected_clients.add(websocket)
+            except Exception as e:
+                logger.error(f"❌ Failed to send to channel {channel}: {e}")
+                disconnected_clients.add(websocket)
+        
+        await asyncio.gather(*[send_to_client(ws) for ws in self.event_channels[channel]], return_exceptions=True)
+        
+        # Clean up disconnected clients from all channels
+        for ws in disconnected_clients:
+            for channel_name, channel_clients in self.event_channels.items():
+                channel_clients.discard(ws)
+            self.connected_clients.discard(ws)
+            
+        logger.debug(f"📡 Broadcasted {event_type} to {len(self.event_channels[channel])} clients in channel {channel}")
     
     async def get_bot_status(self) -> Dict[str, Any]:
         """Get current bot status from database"""
@@ -341,6 +400,36 @@ class DashboardWebSocketServer:
                     "timestamp": int(time.time() * 1000)
                 }))
             
+            elif message_type == "subscribe":
+                # Subscribe to specific channels
+                channels = data.get("channels", [])
+                client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+                for channel in channels:
+                    if channel in self.event_channels:
+                        self.event_channels[channel].add(websocket)
+                        logger.info(f"📡 Client {client_info} subscribed to channel: {channel}")
+                
+                await websocket.send(json.dumps({
+                    "type": "subscription_confirmed",
+                    "channels": channels,
+                    "timestamp": int(time.time() * 1000)
+                }))
+            
+            elif message_type == "unsubscribe":
+                # Unsubscribe from specific channels
+                channels = data.get("channels", [])
+                client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+                for channel in channels:
+                    if channel in self.event_channels:
+                        self.event_channels[channel].discard(websocket)
+                        logger.info(f"📡 Client {client_info} unsubscribed from channel: {channel}")
+                
+                await websocket.send(json.dumps({
+                    "type": "unsubscription_confirmed",
+                    "channels": channels,
+                    "timestamp": int(time.time() * 1000)
+                }))
+            
             elif message_type == "request_update":
                 # Send specific data update
                 update_type = data.get("data", {}).get("update_type")
@@ -355,41 +444,24 @@ class DashboardWebSocketServer:
         except Exception as e:
             logger.error(f"❌ Failed to handle client message: {e}")
     
-    async def periodic_updates(self):
-        """Send periodic updates to all clients"""
+    async def performance_monitor(self):
+        """Lightweight performance monitoring - only send when requested"""
         while True:
             try:
-                if self.connected_clients:
-                    # Performance update every 2 seconds
-                    performance_data = await self.get_performance_data()
-                    await self.broadcast_to_clients("performance_update", performance_data)
+                # Only update performance cache every 5 seconds instead of broadcasting
+                if time.time() - self.last_performance_update > 5:
+                    self.performance_cache = await self.get_performance_data()
+                    self.last_performance_update = time.time()
                     
-                    # Bot status every 10 seconds
-                    if int(time.time()) % 10 == 0:
-                        bot_data = await self.get_bot_status()
-                        await self.broadcast_to_clients("bot_update", bot_data)
-                    
-                    # Music data every 5 seconds
-                    if int(time.time()) % 5 == 0:
-                        music_data = await self.get_music_data()
-                        await self.broadcast_to_clients("music_update", music_data)
-                    
-                    # AI, Gaming, Economy data every 15 seconds
-                    if int(time.time()) % 15 == 0:
-                        ai_data = await self.get_ai_data()
-                        await self.broadcast_to_clients("ai_update", ai_data)
-                        
-                        gaming_data = await self.get_gaming_data()
-                        await self.broadcast_to_clients("gaming_update", gaming_data)
-                        
-                        economy_data = await self.get_economy_data()
-                        await self.broadcast_to_clients("economy_update", economy_data)
+                    # Only broadcast to performance channel if there are subscribers
+                    if self.event_channels['performance_updates']:
+                        await self.broadcast_to_channel('performance_updates', 'performance_update', self.performance_cache)
                 
-                await asyncio.sleep(2)  # 2-second update cycle
+                await asyncio.sleep(5)  # Much less frequent monitoring
                 
             except Exception as e:
-                logger.error(f"❌ Periodic update error: {e}")
-                await asyncio.sleep(5)  # Wait longer on error
+                logger.error(f"❌ Performance monitor error: {e}")
+                await asyncio.sleep(10)
     
     def process_request(self, path, request_headers):
         """Handle HTTP requests that should be WebSocket connections"""
@@ -422,9 +494,10 @@ class DashboardWebSocketServer:
     async def start_server(self):
         """Start the WebSocket server"""
         logger.info(f"🚀 Starting WebSocket server on {self.host}:{self.port}")
+        logger.info(f"📡 Event channels available: {list(self.event_channels.keys())}")
         
-        # Start periodic updates task
-        asyncio.create_task(self.periodic_updates())
+        # Start lightweight performance monitoring task
+        asyncio.create_task(self.performance_monitor())
         
         # Define handler that properly binds to self
         async def client_handler(websocket):
