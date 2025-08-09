@@ -16,7 +16,7 @@ from typing import Optional, Dict, Any, List
 import aiohttp
 import traceback
 from urllib.parse import quote
-from core.command_hub_system import ModernEmbed, HubCategory
+from core.command_hub_system import ModernEmbed, HubCategory, NewAIEngine
 
 
 class ContextMenuCog(commands.Cog):
@@ -94,13 +94,12 @@ class ContextMenuCog(commands.Cog):
             except:
                 pass
             
-            # Fallback to direct AI model manager
+            # Fallback to NewAIEngine for gpt-oss:20b integration
             try:
-                from utils.ai_model_manager import generate_ai_response
-                response = await generate_ai_response(
-                    bot=self.bot,
+                ai_engine = NewAIEngine(self.bot)
+                response = await ai_engine.generate_response(
                     prompt=enhanced_prompt,
-                    personality_mode="Scottish"
+                    mode="fun"  # Fun mode for Scottish personality
                 )
                 if response:
                     self.cache['ai_responses'][cache_key] = response
