@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
-import Gaming3DHub from './pages/Gaming3DHub';
+import SimpleGamingHub from './pages/SimpleGamingHub';
 import NotFound from './pages/NotFound';
 import { useDiscord } from './contexts/DiscordContextDirect';
 import LoadingScreen from './components/LoadingScreen';
@@ -59,11 +59,11 @@ export default function App() {
     return <UserSetup />;
   }
 
-  // SIMPLIFIED: Just show the 3D Gaming Hub directly
+  // SIMPLIFIED: Just show the Simple Gaming Hub directly
   return (
     <div className="min-h-screen overflow-hidden">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Gaming3DHub />} />
+        <Route path="/" element={<SimpleGamingHub />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <DebugOverlay />

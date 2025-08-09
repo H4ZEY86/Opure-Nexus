@@ -1,5 +1,7 @@
 # cogs/info_cog.py
 
+from core.command_hub_system import NewAIEngine
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -46,8 +48,15 @@ class AskReplyView(discord.ui.View):
                 history = self.memory_system.query(user_id=str(self.author.id), query_text=question, n_results=6)
             history_context = "\n".join(history)
             prompt = f"Recent conversation history:\n{history_context}\n\n{self.author.display_name}: {question}"
-            response = await self.bot.ollama_client.generate(model='opure', prompt=prompt)
-            ai_answer = response.get('response', 'Error: No response generated.').strip()
+            
+            # Use NewAIEngine for gpt-oss:20b integration with fun Scottish personality
+            ai_engine = NewAIEngine(self.bot)
+            ai_answer = await ai_engine.generate_response(
+                prompt=prompt,
+                mode="fun"  # Fun mode maintains Scottish personality
+            )
+            if not ai_answer:
+                ai_answer = 'Error: No response generated.'
             if self.memory_system:
                 self.memory_system.add(user_id=str(self.author.id), text_content=f"{self.author.display_name}: {question}")
                 self.memory_system.add(user_id=str(self.author.id), text_content=f"Opure.exe: {ai_answer}")
@@ -239,7 +248,7 @@ class InfoCog(commands.Cog):
         embed.add_field(name="ℹ️ Information & Help", value="\n".join(info_commands), inline=False)
         
         embed.set_footer(
-            text="🤖 Powered by Mistral AI • Use /ask for specific help",
+            text="🤖 Powered by gpt-oss:20b • Use /ask for specific help",
             icon_url=self.bot.user.display_avatar.url
         )
         
@@ -567,9 +576,12 @@ class UltimateQuickChatModal(discord.ui.Modal, title="🤖 Ultimate Chat with Op
             history_context = "\n".join(history)
             prompt = f"Recent conversation history:\n{history_context}\n\n{self.user.display_name}: {self.chat_input.value}"
             
-            # Get Opure's response
-            response = await self.bot.ollama_client.generate(model='opure', prompt=prompt)
-            ai_answer = response.get('response', 'Och, sorry! My AI systems are having a wee moment. Give us a minute and try again, ken!').strip()
+            # Get Opure's response using NewAIEngine
+            ai_engine = NewAIEngine(self.bot)
+            ai_answer = await ai_engine.generate_response(
+                prompt=prompt,
+                mode="fun"  # Fun mode maintains Scottish personality
+            )
             
             # Store in memory
             if self.memory_system:
@@ -625,9 +637,12 @@ class QuickChatModal(discord.ui.Modal, title="💬 Chat with Opure"):
             history_context = "\n".join(history)
             prompt = f"Recent conversation history:\n{history_context}\n\n{self.user.display_name}: {self.chat_input.value}"
             
-            # Get Opure's response
-            response = await self.bot.ollama_client.generate(model='opure', prompt=prompt)
-            ai_answer = response.get('response', 'Error: No response generated.').strip()
+            # Get Opure's response using NewAIEngine
+            ai_engine = NewAIEngine(self.bot)
+            ai_answer = await ai_engine.generate_response(
+                prompt=prompt,
+                mode="fun"  # Fun mode maintains Scottish personality
+            )
             
             # Store in memory
             if self.memory_system:
@@ -662,13 +677,14 @@ class QuickChatModal(discord.ui.Modal, title="💬 Chat with Opure"):
             "memory_system": "❌"
         }
         
-        # Test AI Connection
+        # Test AI Connection using NewAIEngine
         try:
-            test_response = await self.bot.ollama_client.generate(
-                model='opure', 
-                prompt="Respond with exactly: 'Aye, systems operational, ken!'"
+            ai_engine = NewAIEngine(self.bot)
+            test_response = await ai_engine.generate_response(
+                prompt="Respond with exactly: 'Aye, systems operational, ken!'",
+                mode="fun"
             )
-            if test_response and test_response.get('response'):
+            if test_response and "operational" in test_response.lower():
                 test_results["ai_connection"] = "✅"
         except Exception as e:
             self.bot.add_error(f"AI test failed: {e}")

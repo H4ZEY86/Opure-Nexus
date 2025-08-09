@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import quote
 import secrets
 import weakref
+from core.command_hub_system import NewAIEngine
 from aiohttp import web, WSMsgType
 
 # Rate limiting and core systems
@@ -1504,9 +1505,13 @@ class ActivityWebSocketServer:
             message = data.get("message", "")
             if message:
                 try:
-                    # Get AI response using bot's ollama client
-                    response = await self.bot.ollama_client.generate(model='opure', prompt=f"{user.display_name if user else 'User'}: {message}")
-                    ai_response = response.get('response', 'Sorry, I cannot process that right now.').strip()
+                    # Get AI response using NewAIEngine with gpt-oss:20b
+                    ai_engine = NewAIEngine(self.bot)
+                    ai_response = await ai_engine.generate_response(
+                        prompt=f"{user.display_name if user else 'User'}: {message}",
+                        mode="fun"  # Fun mode for Scottish personality
+                    )
+                    ai_response = ai_response or 'Sorry, I cannot process that right now.'
                     
                     # Store in memory if available
                     if hasattr(self.bot, 'memory_system') and self.bot.memory_system:

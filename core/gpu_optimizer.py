@@ -80,7 +80,7 @@ class RTX5070TiOptimizer:
         self.gpu_metrics = None
         self.monitoring_active = False
         
-        # Model resource profiles (estimated for Mistral-based models)
+        # Model resource profiles (estimated for gpt-oss:20b models)
         self.model_profiles = {
             "opure-core": ModelResourceProfile(
                 model_name="opure-core",

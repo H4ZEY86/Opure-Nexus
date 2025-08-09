@@ -14,6 +14,7 @@ import json
 
 from utils.chroma_memory import ChromaMemory
 from .constants import LIVES_EMOJI, LEVEL_EMOJI, XP_EMOJI
+from core.command_hub_system import NewAIEngine
 
 # --- Game Config ---
 REWARD_CONFIG = {
@@ -442,8 +443,12 @@ class GameView(discord.ui.View):
         """
         
         try:
-            response = await self.bot.ollama_client.generate(model='mistral', prompt=game_master_prompt)
-            ai_narrative = response['response']
+            # Use NewAIEngine for gpt-oss:20b integration with gaming personality
+            ai_engine = NewAIEngine(self.bot)
+            ai_narrative = await ai_engine.generate_response(
+                prompt=game_master_prompt,
+                mode="gaming"  # Gaming mode for cyberpunk narrative generation
+            )
         except Exception as e:
             self.bot.add_error(f"Ollama connection failed for {self.author.name}: {e}")
             return self.build_status_embed(
@@ -725,8 +730,12 @@ class GameCog(commands.Cog):
         Example: [{"name": "Shadowmancer", "emoji": "🔮"}, {"name": "Chrome-Junkle", "emoji": "🤖"}, {"name": "Wasteland Scavenger", "emoji": "☢️"}]
         """
         try:
-            response = await self.bot.ollama_client.generate(model='mistral', prompt=prompt, options={"temperature": 1.2})
-            text = response.get('response', '')
+            # Use NewAIEngine for gpt-oss:20b integration with creative personality
+            ai_engine = NewAIEngine(self.bot)
+            text = await ai_engine.generate_response(
+                prompt=prompt,
+                mode="creative"  # Creative mode for generating diverse playstyles
+            )
             cleaned_text = re.sub(r'```json\n|```', '', text).strip()
             styles = json.loads(cleaned_text)
             
@@ -765,8 +774,12 @@ class GameCog(commands.Cog):
         ANSWER: [The correct one or two-word answer to the challenge.]
         """
         try:
-            response = await self.bot.ollama_client.generate(model='mistral', prompt=prompt)
-            text = response.get('response', '')
+            # Use NewAIEngine for gpt-oss:20b integration with creative personality
+            ai_engine = NewAIEngine(self.bot)
+            text = await ai_engine.generate_response(
+                prompt=prompt,
+                mode="creative"  # Creative mode for generating mission scenarios
+            )
             
             name_match = re.search(r"MODE_NAME:\s*(.*)", text, re.IGNORECASE)
             objective_match = re.search(r"OBJECTIVE:\s*(.*)", text, re.IGNORECASE)
@@ -992,7 +1005,7 @@ class GameCog(commands.Cog):
             inline=False
         )
         
-        embed.set_footer(text="🤖 Generated with Mistral AI • 30 seconds to join", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="🤖 Generated with gpt-oss:20b • 30 seconds to join", icon_url=self.bot.user.display_avatar.url)
         
         view = MultiplayerLobbyView(self.bot, interaction.user, mission_details, difficulty.value, max_players, self.memory_system)
         

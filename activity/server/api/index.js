@@ -949,7 +949,7 @@ async function handleAIChat(req, res) {
     }
 
     // PRIORITY 3: Try alternative Ollama models that might be available
-    const altModels = ['llama3.2:latest', 'llama3.1:latest', 'mistral:latest', 'llama2:latest']
+    const altModels = ['gpt-oss:20b', 'llama3.2:latest', 'llama3.1:latest', 'llama2:latest']
     
     for (const model of altModels) {
       try {

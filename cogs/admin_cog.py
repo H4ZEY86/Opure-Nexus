@@ -250,7 +250,7 @@ class AdminCog(commands.GroupCog, name="admin"):
                 
                 embed = discord.Embed(
                     title="🛒 Shop Refreshed", 
-                    description="✅ **All shop categories have been regenerated using Mistral AI**",
+                    description="✅ **All shop categories have been regenerated using gpt-oss:20b**",
                     color=0x57F287
                 )
                 embed.set_author(name=f"Admin Action by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
@@ -262,7 +262,7 @@ class AdminCog(commands.GroupCog, name="admin"):
                         category_info.append(f"📦 **{category}**: {len(items)} items")
                     embed.add_field(name="Generated Categories", value="\n".join(category_info), inline=False)
                 
-                embed.set_footer(text="🤖 Generated with Mistral AI", icon_url=self.bot.user.display_avatar.url)
+                embed.set_footer(text="🤖 Generated with gpt-oss:20b", icon_url=self.bot.user.display_avatar.url)
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 
             except Exception as e:

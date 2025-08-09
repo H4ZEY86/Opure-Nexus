@@ -14,6 +14,7 @@ from .constants import (
     FRAGMENTS_EMOJI, LOGKEY_EMOJI, ARTIFACT_EMOJI, LEADER_EMOJI,
     STREAK_EMOJI, LIVES_EMOJI, SHOP_EMOJI, LEVEL_EMOJI, XP_EMOJI
 )
+from core.command_hub_system import NewAIEngine
 
 # --- Shop UI ---
 class ShopView(discord.ui.View):
@@ -249,8 +250,24 @@ class EconomyCog(commands.Cog):
         IMPORTANT: Use only standard unicode emojis, not text or symbols.
         """
         try:
-            response = await self.bot.ollama_client.generate(model='mistral', prompt=prompt, format='json')
-            item_data = json.loads(response['response'])
+            # Use NewAIEngine for gpt-oss:20b integration with professional personality
+            ai_engine = NewAIEngine(self.bot)
+            response_text = await ai_engine.generate_response(
+                prompt=prompt,
+                mode="support"  # Professional mode for generating items
+            )
+            
+            # Parse JSON from response
+            try:
+                item_data = json.loads(response_text)
+            except json.JSONDecodeError:
+                # Try to extract JSON from response if it's wrapped in text
+                import re
+                json_match = re.search(r'\{[^{}]*\}', response_text)
+                if json_match:
+                    item_data = json.loads(json_match.group())
+                else:
+                    raise json.JSONDecodeError("No valid JSON found", response_text, 0)
             
             if all(key in item_data for key in ["name", "price", "description", "game_effect", "rarity", "emoji"]):
                 # Validate emoji - ensure it's a valid unicode emoji (1-2 characters)
@@ -669,7 +686,7 @@ class EconomyCog(commands.Cog):
         return False
 
     async def generate_shop_items(self):
-        """Generate shop items using Mistral AI for all categories."""
+        """Generate shop items using gpt-oss:20b AI for all categories."""
         categories = ["Consumables", "Upgrades", "Artifacts", "Tools"]
         self.bot.shop_items = {}
         
@@ -705,8 +722,13 @@ class EconomyCog(commands.Cog):
                 Return ONLY the JSON array, no other text.
                 """
                 
-                response = await self.bot.ollama_client.generate(model='mistral', prompt=prompt)
-                items_text = response['response'].strip()
+                # Use NewAIEngine for gpt-oss:20b integration with creative personality
+                ai_engine = NewAIEngine(self.bot)
+                response_text = await ai_engine.generate_response(
+                    prompt=prompt,
+                    mode="creative"  # Creative mode for generating diverse shop items
+                )
+                items_text = response_text.strip()
                 
                 # Try to parse JSON
                 try:

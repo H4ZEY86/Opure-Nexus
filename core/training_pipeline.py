@@ -79,7 +79,7 @@ class TrainingJob:
 class ContinuousLearningPipeline:
     """Continuous learning system for AI model adaptation"""
     
-    def __init__(self, base_model_path: str = "mistralai/Mistral-7B-Instruct-v0.1"):
+    def __init__(self, base_model_path: str = "gpt-oss:20b"):
         self.base_model_path = base_model_path
         self.db_path = "training_data.db"
         self.models_dir = Path("/mnt/d/Opure.exe/models/trained")

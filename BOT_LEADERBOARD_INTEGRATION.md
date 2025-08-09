@@ -53,12 +53,12 @@ class GamingCog(commands.Cog):
     async def leaderboard(self, ctx, game: str = None):
         """Display top 10 scores"""
         
-        # Game ID mapping
+        # Game ID mapping (updated for SimpleGamingHub)
         game_ids = {
-            'space': 'space_race',
-            'cube': 'cube_dash', 
-            'ball': 'ball_bouncer',
-            'color': 'color_matcher'
+            'clicker': 'power_clicker',
+            'memory': 'memory_test',
+            'reaction': 'reaction_time',
+            'typing': 'speed_typing'
         }
         
         game_id = game_ids.get(game.lower()) if game else None
@@ -129,11 +129,17 @@ Your bot will have these commands:
 ### `/leaderboard` 
 Shows top 10 overall scores
 
-### `/leaderboard space`
-Shows top 10 Space Race scores  
+### `/leaderboard clicker`
+Shows top 10 Power Clicker scores  
 
-### `/leaderboard cube`
-Shows top 10 Cube Dash scores
+### `/leaderboard memory`
+Shows top 10 Memory Test scores
+
+### `/leaderboard reaction`
+Shows top 10 Reaction Time scores
+
+### `/leaderboard typing`
+Shows top 10 Speed Typing scores
 
 ### `/top3`
 Posts top 3 players to current channel with fancy embed

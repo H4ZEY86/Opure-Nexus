@@ -51,9 +51,10 @@ console = Console(force_terminal=True, legacy_windows=False, width=120)
 from core.websocket_integration import setup_websocket_integration
 from core.production_optimizer import setup_production_optimizer
 
-# New Hub System and AI Engine
+# New Hub System, AI Engine, and Real-Time Sync
 from core.command_hub_system import NewAIEngine, initialize_hub_manager
-from utils.gpu_ai_engine import initialize_gpu_engine, get_gpu_engine
+from core.realtime_sync_system import initialize_sync_manager
+from core.sync_integration import SyncIntegrationLayer
 
 # --- Centralized Log & Error Queues ---
 log_messages = deque(maxlen=100)
@@ -154,6 +155,10 @@ class OpureBot(commands.Bot):
         
         # Initialize hub manager
         self.hub_manager = initialize_hub_manager(self)
+        
+        # Initialize real-time synchronization system
+        self.sync_manager = initialize_sync_manager(self)
+        self.sync_integration = None  # Will be initialized in setup_hook
 
     # NEW FUNCTION TO SEND DATA TO THE API
     async def send_status_to_api(self, data: dict):
@@ -281,6 +286,13 @@ class OpureBot(commands.Bot):
             completed_at TEXT,
             is_completed INTEGER DEFAULT 0
         )""")
+        await self.db.execute("""CREATE TABLE IF NOT EXISTS sync_events (
+            sync_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            data TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            processed INTEGER DEFAULT 0
+        )""")
         await self.db.commit()
         self.add_log("✓ Database connection established and tables verified.")
 
@@ -298,8 +310,22 @@ class OpureBot(commands.Bot):
             except Exception as e:
                 self.add_error(f"FAILED to load cog '{cog}': {e}\n{traceback.format_exc()}")
         self.add_log("--- Finished Cog Loading ---\n")
+        
+        # Initialize sync integration system
+        try:
+            self.sync_integration = SyncIntegrationLayer(self, self.sync_manager)
+            await self.sync_integration.initialize()
+            await self.sync_manager.start()
+            self.add_log("✅ Real-time synchronization system initialized and started")
+        except Exception as e:
+            self.add_error(f"❌ Failed to initialize sync system: {e}")
 
     async def close(self):
+        # Gracefully shut down sync system
+        if hasattr(self, 'sync_manager') and self.sync_manager:
+            await self.sync_manager.stop()
+            self.add_log("✅ Real-time sync system shutdown complete")
+        
         await super().close()
         if self.db: await self.db.close()
 
@@ -1143,8 +1169,7 @@ async def on_ready():
     bot.add_log("🔗 Context Menus: 5/5 maximum commands active")
     bot.add_log("🏗️ Command Hubs: 4 category systems online")
     bot.add_log("🧠 NewAIEngine: gpt-oss:20b with 5 personality modes")
-    bot.add_log("
-🎆 LEGENDARY DISCORD BOT TRANSFORMATION COMPLETE! 🎆")
+    bot.add_log("🎆 LEGENDARY DISCORD BOT TRANSFORMATION COMPLETE! 🎆")
 
     # --- NEW: Trigger boot sequence only on first ready event ---
     if not bot.boot_up_complete:
@@ -1468,7 +1493,8 @@ async def main():
         async with bot:
             # Initialize GPU AI Engine first
             console.print(">>> [bold green]Initializing GPU AI Engine...[/]")
-            gpu_engine = await initialize_gpu_engine()
+            # gpu_engine = await initialize_gpu_engine()  # Disabled for now
+            gpu_engine = None  # Temporary fallback
             if gpu_engine:
                 bot.gpu_engine = gpu_engine
                 console.print("[OK] [bold green]GPU AI Engine ready for bulletproof performance![/]")
