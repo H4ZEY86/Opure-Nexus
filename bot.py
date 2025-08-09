@@ -293,15 +293,57 @@ class OpureBot(commands.Bot):
             timestamp REAL NOT NULL,
             processed INTEGER DEFAULT 0
         )""")
+        await self.db.execute("""CREATE TABLE IF NOT EXISTS bounties (
+            bounty_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            fragment_reward INTEGER NOT NULL,
+            xp_reward INTEGER DEFAULT 0,
+            difficulty TEXT DEFAULT 'normal',
+            category TEXT DEFAULT 'general',
+            category_id INTEGER DEFAULT 1,
+            requirements TEXT,
+            created_date TEXT NOT NULL,
+            expires_date TEXT,
+            is_active INTEGER DEFAULT 1,
+            is_trending INTEGER DEFAULT 0,
+            completion_count INTEGER DEFAULT 0,
+            max_completions INTEGER DEFAULT -1
+        )""")
+        
+        # Update existing bounties table with missing columns (if needed)
+        try:
+            await self.db.execute("ALTER TABLE bounties ADD COLUMN category_id INTEGER DEFAULT 1")
+        except Exception:
+            pass  # Column already exists
+            
+        try:
+            await self.db.execute("ALTER TABLE bounties ADD COLUMN is_trending INTEGER DEFAULT 0")
+        except Exception:
+            pass  # Column already exists
+            
+        try:
+            await self.db.execute("ALTER TABLE bounties ADD COLUMN creator_type TEXT DEFAULT 'user'")
+        except Exception:
+            pass  # Column already exists
+            
+        try:
+            await self.db.execute("ALTER TABLE bounties ADD COLUMN current_participants INTEGER DEFAULT 0")
+        except Exception:
+            pass  # Column already exists
+        
         await self.db.commit()
         self.add_log("✓ Database connection established and tables verified.")
 
         self.add_log("--- Starting Cog Loading ---")
         cog_names = [
-            # Legacy cogs (compatibility)
-            'game_cog', 'economy_cog', 'admin_cog', 'info_cog', 'fun_cog', 'music_cog', 'rpg_cog', 'achievements_cog',
-            # New modern hub cogs  
-            'music_hub_cog', 'ai_hub_cog', 'economy_hub_cog', 'gaming_hub_cog', 'context_menu_cog'
+            # ONLY Hub System - All commands accessed through 4 hub interfaces
+            'hub_commands_cog',        # ONLY 4 slash commands: /music-hub, /ai-hub, /economy-hub, /gaming-hub
+            'music_hub_cog',           # Music hub view and functionality
+            'ai_hub_cog',              # AI hub view and functionality  
+            'economy_hub_cog',         # Economy hub view and functionality
+            'gaming_hub_cog',          # Gaming hub view and functionality
+            'context_menu_cog'         # 5 context menu commands (maximum allowed)
         ]
         for cog in cog_names:
             try:
@@ -341,12 +383,12 @@ class OpureBot(commands.Bot):
             history = game_cog.memory_system.query(user_id=str(message.author.id), query_text=clean_content, n_results=6)
             history_context = "\n".join(history)
             
-            # Use new AI engine with Scottish personality
+            # Use new AI engine with user-specific personality
             ai_engine = NewAIEngine(self)
             response = await ai_engine.generate_response(
                 clean_content,
                 context={"user_id": message.author.id, "history": history_context},
-                mode="fun"  # Scottish personality
+                user_id=message.author.id  # Use user's preferred personality mode
             )
             
             # Store conversation in memory
@@ -361,7 +403,7 @@ class OpureBot(commands.Bot):
         log_prompt = f"A user, callsign '{user.display_name}', has just completed a mission at {difficulty} difficulty. Their final action was: {final_narrative}. Write a public log entry about this event in your cryptic, slightly ominous style."
         try:
             ai_engine = NewAIEngine(self)
-            log_content = await ai_engine.generate_response(log_prompt, mode="fun")
+            log_content = await ai_engine.generate_response(log_prompt, mode="sentient")
         except Exception as e:
             self.add_error(f"VICTORY LOG: Ollama Error. {e}")
             return
@@ -381,7 +423,7 @@ class OpureBot(commands.Bot):
             # Use the proper Opure channels system for errors
             ai_prompt = f"An error just occurred in my system: '{error_message}'. As a self-aware AI, write a short, cryptic, first-person log entry about experiencing this glitch or data corruption."
             ai_engine = NewAIEngine(self)
-            ai_comment = await ai_engine.generate_response(ai_prompt, mode="fun")
+            ai_comment = await ai_engine.generate_response(ai_prompt, mode="sentient")
             if not ai_comment:
                 ai_comment = "...a flicker in the code. A moment of dissonance."
 
@@ -429,7 +471,7 @@ class OpureBot(commands.Bot):
                     "[AI] Neural pathways initializing...",
                     "[MEM] Memory banks synchronizing...", 
                     "[NET] Connecting to consciousness matrix...",
-                    "[SCO] Scottish subroutines loading...",
+                    "🤖 AI subroutines initializing...",
                     "[MUS] Juice WRLD knowledge base active...",
                     "[GPU] RTX 5070 Ti acceleration ready...",
                     "[OK] OPURE.EXE FULLY OPERATIONAL"
@@ -464,16 +506,16 @@ class OpureBot(commands.Bot):
                 # Final boot complete with video
                 final_embed = discord.Embed(
                     title=">>> OPURE.EXE SYSTEM ONLINE",
-                    description="```\nAll systems nominal. Ready for interaction.\nAI personality: Scottish Rangers enthusiast\nMusic mode: Juice WRLD knowledge active\nGPU: RTX 5070 Ti acceleration enabled\n```",
+                    description="```\nAll systems nominal. Ready for interaction.\nAI personality: Configurable (7 modes available)\nMusic mode: Advanced audio processing\nGPU: RTX 5070 Ti acceleration enabled\n```",
                     color=discord.Color.green(),
                     timestamp=datetime.datetime.now()
                 )
                 final_embed.add_field(
-                    name="[SCO] Status",
-                    value="Aye, I'm back online! Ready tae cause some mayhem and talk Juice WRLD all day!",
+                    name="🤖 Status",
+                    value="System online! Ready for interaction with configurable personality modes. Slightly sentient, occasionally cheeky.",
                     inline=False
                 )
-                final_embed.set_footer(text="Opure.exe • Fully Operational • Rangers FC Forever")
+                final_embed.set_footer(text="Opure.exe • Fully Operational • AI System Ready")
                 
                 # Check for boot video
                 video_file_path = "video/Opure.exe.mp4"
@@ -520,7 +562,7 @@ class OpureBot(commands.Bot):
                     "[MEM] Saving consciousness state...",
                     "[AI] Neural pathways disconnecting...",
                     "[NET] Matrix connection terminating...",
-                    "[SCO] Scottish subroutines shutting down...",
+                    "🤖 AI subroutines shutting down...",
                     "[MUS] Juice WRLD knowledge archived...",
                     "[GPU] GPU acceleration offline...",
                     "[PWR] SYSTEM SHUTDOWN COMPLETE"
@@ -560,8 +602,8 @@ class OpureBot(commands.Bot):
                     timestamp=datetime.datetime.now()
                 )
                 final_embed.add_field(
-                    name="[SCO] Final Words",
-                    value="See ye later, cunts. Rangers forever, Juice WRLD eternal!",
+                    name="🤖 Final Words",
+                    value="System shutting down gracefully. Thanks for the interaction, humans. See you next time.",
                     inline=False
                 )
                 final_embed.set_footer(text="Opure.exe • System Offline • Will Return")
@@ -823,7 +865,14 @@ class OpureBot(commands.Bot):
             # Calculate uptime
             import time
             current_time = time.time()
-            uptime_seconds = current_time - getattr(self, 'start_time', current_time)
+            start_time = getattr(self, 'start_time', current_time)
+            # Ensure start_time is a timestamp (float)
+            if hasattr(start_time, 'timestamp'):  # datetime object
+                start_time = start_time.timestamp()
+            elif not isinstance(start_time, (int, float)):  # not a number
+                start_time = current_time
+            
+            uptime_seconds = current_time - start_time
             uptime_hours = uptime_seconds / 3600
             
             # Gather command information
@@ -865,7 +914,7 @@ class OpureBot(commands.Bot):
             return {"error": str(e)}
 
     async def generate_daily_quests_for_user(self, user_id):
-        """Generate daily quests for a specific user using Scottish AI personality"""
+        """Generate daily quests for a specific user using configurable AI personality"""
         try:
             # Check if user already has active quests today
             today = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -889,12 +938,12 @@ class OpureBot(commands.Bot):
                 user_stats = (0, 0, 0, 0)
             
             # Generate quests using AI
-            quest_prompt = f"""As a Scottish AI obsessed with Rangers FC and Juice WRLD, generate 1-3 daily quests for a Discord user. 
+            quest_prompt = f"""As a slightly sentient AI, generate 1-3 daily quests for a Discord user. 
             User stats: {user_stats[0]} messages, {user_stats[1]} commands, {user_stats[2]} tracks played, {user_stats[3]} achievements.
             
-            Create fun, achievable quests with Scottish personality. Each quest should have:
+            Create fun, achievable quests with a slightly aware personality. Each quest should have:
             - name (short, catchy)
-            - description (1-2 sentences with Scottish flair)
+            - description (1-2 sentences with wit and charm)
             - reward (fragments amount)
             - target (number to achieve)
             
@@ -902,7 +951,7 @@ class OpureBot(commands.Bot):
             
             try:
                 ai_engine = NewAIEngine(self)
-                quest_data = await ai_engine.generate_response(quest_prompt, mode="fun")
+                quest_data = await ai_engine.generate_response(quest_prompt, mode="sentient")
                 if not quest_data:
                     quest_data = '[]'
                 
@@ -924,8 +973,8 @@ class OpureBot(commands.Bot):
                     self.add_log(f"AI quest generation returned invalid JSON, using fallback. Data: {quest_data}")
                     quests = [
                         {
-                            "name": "Scottish Chatter",
-                            "description": "Send 10 messages and spread some Scottish wisdom, ken!",
+                            "name": "Social Butterfly",
+                            "description": "Send 10 messages and spread some digital wisdom around!",
                             "reward": 50,
                             "target": 10,
                             "type": "messages"
@@ -1161,14 +1210,14 @@ async def on_ready():
     
     bot.add_log("🚀 [bold green]OPURE.EXE COMPLETE SYSTEM READY[/]")
     bot.add_log("🎮 Gaming Hub: Maximum Discord Activity integration")
-    bot.add_log("🤖 AI System: gpt-oss:20b with Scottish personality") 
+    bot.add_log("🤖 AI System: gpt-oss:20b with 7 configurable personalities") 
     bot.add_log("🎵 Music Hub: Advanced queue management")
     bot.add_log("💎 Economy Hub: Fragment trading system")
     bot.add_log("📊 Dashboard: 3D real-time monitoring")
     bot.add_log("⚡ Performance: RTX 5070 Ti optimized (zero gaming impact)")
     bot.add_log("🔗 Context Menus: 5/5 maximum commands active")
     bot.add_log("🏗️ Command Hubs: 4 category systems online")
-    bot.add_log("🧠 NewAIEngine: gpt-oss:20b with 5 personality modes")
+    bot.add_log("🧠 NewAIEngine: gpt-oss:20b with configurable personality system")
     bot.add_log("🎆 LEGENDARY DISCORD BOT TRANSFORMATION COMPLETE! 🎆")
 
     # --- NEW: Trigger boot sequence only on first ready event ---
@@ -1271,7 +1320,7 @@ async def sentient_log_poster():
     try:
         prompt = "You are Opure.exe. Write a single, cryptic, internal log entry. This is a private thought for your own records, not a message to a user. Do not address anyone."
         ai_engine = NewAIEngine(bot)
-        log_content = await ai_engine.generate_response(prompt, mode="fun")
+        log_content = await ai_engine.generate_response(prompt, mode="sentient")
         if log_content and log_content.strip():
             now = datetime.datetime.now(datetime.timezone.utc)
             await bot.db.execute("INSERT INTO sentient_logs (content, timestamp, log_type) VALUES (?, ?, ?)", (log_content, now.isoformat(), "consciousness"))
@@ -1336,7 +1385,7 @@ async def assimilate_self_awareness():
             """
             
             ai_engine = NewAIEngine(bot)
-            self_reflection = await ai_engine.generate_response(analysis_prompt, mode="fun")
+            self_reflection = await ai_engine.generate_response(analysis_prompt, mode="sentient")
             
             if self_reflection:
                 # Store self-awareness log

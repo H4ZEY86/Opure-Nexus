@@ -1,238 +1,35 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  :root {
-    --font-inter: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
-    --cyber-gradient: linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff006e 100%);
-    --rangers-gradient: linear-gradient(135deg, #0066cc 0%, #003d80 50%, #ff0000 100%);
-    --gpu-gradient: linear-gradient(135deg, #76b900 0%, #9acd32 50%, #5a8a00 100%);
-    --scottish-gradient: linear-gradient(45deg, #005eb8 0%, #ffffff 50%, #005eb8 100%);
-  }
-  
-  body {
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    font-variation-settings: "opsz" 32;
-    background: radial-gradient(circle at 20% 50%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), 
-                radial-gradient(circle at 80% 20%, rgba(157, 78, 221, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 80%, rgba(255, 0, 110, 0.1) 0%, transparent 50%),
-                #0a0a0f;
-    background-attachment: fixed;
-    overflow-x: hidden;
-  }
-  
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(45deg, #00ffff, #9d4edd, #0066cc);
-    border-radius: 4px;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(45deg, #00ffff, #ff006e, #0066cc);
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-  }
+/* Next.js Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@layer components {
-  .glass-panel {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl;
-    background: linear-gradient(135deg, rgba(0, 255, 255, 0.05) 0%, rgba(157, 78, 221, 0.05) 100%);
-  }
-  
-  .glass-panel-dark {
-    @apply bg-black/20 backdrop-blur-xl border border-rangers-blue/20 rounded-2xl shadow-2xl;
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.1) 0%, rgba(0, 61, 128, 0.05) 100%);
-  }
-  
-  .neon-border {
-    @apply border-2 border-cyber-neon shadow-[0_0_15px_rgba(0,255,255,0.3)];
-  }
-  
-  .rangers-border {
-    @apply border-2 border-rangers-blue shadow-[0_0_15px_rgba(0,102,204,0.4)];
-  }
-  
-  .scottish-border {
-    @apply border-2 border-scottish-blue shadow-[0_0_15px_rgba(0,94,184,0.4)];
-  }
-  
-  .gpu-border {
-    @apply border-2 border-gpu-green shadow-[0_0_15px_rgba(118,185,0,0.4)];
-  }
-  
-  .cyber-button {
-    @apply glass-panel px-6 py-3 font-mono text-sm font-semibold text-cyber-neon 
-           hover:bg-cyber-neon/10 hover:scale-105 transition-all duration-300
-           active:scale-95 border-cyber-neon/50 hover:border-cyber-neon;
-  }
-  
-  .rangers-button {
-    @apply glass-panel-dark px-6 py-3 font-mono text-sm font-semibold text-rangers-blue 
-           hover:bg-rangers-blue/10 hover:scale-105 transition-all duration-300
-           active:scale-95 border-rangers-blue/50 hover:border-rangers-blue;
-  }
-  
-  .status-indicator {
-    @apply w-3 h-3 rounded-full animate-pulse-glow;
-  }
-  
-  .metric-card {
-    @apply glass-panel p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer
-           hover:shadow-[0_0_30px_rgba(0,255,255,0.2)];
-  }
-  
-  .floating-element {
-    @apply animate-float;
-  }
-  
-  .cyber-grid {
-    background-image: 
-      linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px);
-    background-size: 20px 20px;
-  }
-  
-  .data-visualization {
-    @apply relative overflow-hidden rounded-xl;
-    background: linear-gradient(135deg, rgba(0,255,255,0.1) 0%, rgba(157,78,221,0.1) 100%);
-  }
-  
-  .system-monitor {
-    @apply glass-panel-dark relative;
-    border: 1px solid rgba(118, 185, 0, 0.3);
-  }
-  
-  .ai-panel {
-    @apply glass-panel relative;
-    border: 1px solid rgba(157, 78, 221, 0.3);
-    background: linear-gradient(135deg, rgba(157, 78, 221, 0.1) 0%, rgba(255, 0, 110, 0.1) 100%);
-  }
-  
-  .discord-panel {
-    @apply glass-panel relative;
-    border: 1px solid rgba(88, 101, 242, 0.3);
-    background: linear-gradient(135deg, rgba(88, 101, 242, 0.1) 0%, rgba(0, 102, 204, 0.1) 100%);
-  }
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+  color: white;
+  min-height: 100vh;
 }
 
-@layer utilities {
-  .text-shadow-glow {
-    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
-  }
-  
-  .border-glow {
-    box-shadow: 0 0 10px currentColor, inset 0 0 10px currentColor;
-  }
-  
-  .text-cyber {
-    background: var(--cyber-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
-  .text-rangers {
-    background: var(--rangers-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
-  .text-gpu {
-    background: var(--gpu-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
-  .holographic {
-    background: linear-gradient(45deg, #00ffff, #9d4edd, #ff006e, #39ff14);
-    background-size: 400% 400%;
-    animation: holographic 4s ease-in-out infinite;
-  }
-  
-  @keyframes holographic {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  
-  .matrix-rain {
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .matrix-rain::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: 
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 98px,
-        rgba(0, 255, 255, 0.03) 100px
-      );
-    animation: matrix-scroll 20s linear infinite;
-  }
-  
-  @keyframes matrix-scroll {
-    0% { transform: translateX(-100px); }
-    100% { transform: translateX(0); }
-  }
+h1 {
+  color: #0066cc;
+  text-shadow: 0 0 10px rgba(0, 102, 204, 0.5);
 }
 
-/* Three.js canvas styling */
-canvas {
-  outline: none;
-  touch-action: none;
+.dashboard-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 3D Scene Enhancements */
-.scene-container {
-  position: relative;
-  background: radial-gradient(ellipse at center, rgba(0, 255, 255, 0.1) 0%, transparent 70%);
-}
-
-/* Loading Animation */
-@keyframes loading-pulse {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-}
-
-.loading-pulse {
-  animation: loading-pulse 2s ease-in-out infinite;
-}
-
-/* Responsive 3D */
-@media (max-width: 768px) {
-  .glass-panel {
-    @apply rounded-xl;
-  }
-  
-  .metric-card {
-    @apply p-4;
-  }
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
 }

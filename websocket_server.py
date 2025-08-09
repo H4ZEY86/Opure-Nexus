@@ -391,6 +391,19 @@ class DashboardWebSocketServer:
                 logger.error(f"❌ Periodic update error: {e}")
                 await asyncio.sleep(5)  # Wait longer on error
     
+    def process_request(self, path, request_headers):
+        """Handle HTTP requests that should be WebSocket connections"""
+        try:
+            # Check if this is a valid WebSocket request
+            if 'upgrade' in request_headers and request_headers['upgrade'].lower() == 'websocket':
+                return None, None  # Valid WebSocket, let it proceed
+            else:
+                # Return HTTP response for non-WebSocket requests
+                from websockets.http11 import Response
+                return Response(426, "Upgrade Required", {"Content-Type": "text/plain"}, b"WebSocket connection required")
+        except Exception:
+            return None, None  # Fallback to default behavior
+    
     async def handle_client(self, websocket: WebSocketServerProtocol, path: str):
         """Handle individual client connections"""
         try:
@@ -413,14 +426,19 @@ class DashboardWebSocketServer:
         # Start periodic updates task
         asyncio.create_task(self.periodic_updates())
         
-        # Start WebSocket server
+        # Define handler that properly binds to self
+        async def client_handler(websocket):
+            await self.handle_client(websocket, "/")
+        
+        # Start WebSocket server with better error handling
         async with websockets.serve(
-            self.handle_client,
+            client_handler,
             self.host,
             self.port,
             ping_interval=30,
             ping_timeout=10,
-            close_timeout=10
+            close_timeout=10,
+            process_request=self.process_request
         ):
             logger.info(f"✅ WebSocket server running on ws://{self.host}:{self.port}")
             logger.info("📊 Dashboard WebSocket ready for connections")
