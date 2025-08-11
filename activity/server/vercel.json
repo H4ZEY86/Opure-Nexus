@@ -5,26 +5,26 @@
       "maxDuration": 30
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/health",
-      "destination": "/api/index.js"
+      "src": "/health",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/api/token",
-      "destination": "/api/token.js"
+      "src": "/api/token",
+      "dest": "/api/token.js"
     },
     {
-      "source": "/api/auth/callback",
-      "destination": "/api/auth/callback.js"
+      "src": "/api/auth/callback",
+      "dest": "/api/auth/callback.js"
     },
     {
-      "source": "/api/auth/install",
-      "destination": "/api/auth/install.js"
+      "src": "/api/auth/install", 
+      "dest": "/api/auth/install.js"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
     }
   ],
   "headers": [

@@ -20,6 +20,9 @@ export default defineConfig({
     'import.meta.env.VITE_WS_URL': JSON.stringify('wss://api.opure.uk'),
     'import.meta.env.VITE_ENVIRONMENT': JSON.stringify('production'),
     'import.meta.env.VITE_DEBUG_MODE': JSON.stringify('false'),
+    // Supabase fallback configuration (use real values in production)
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key'),
   },
   server: {
     host: '0.0.0.0',
