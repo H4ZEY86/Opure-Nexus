@@ -938,7 +938,7 @@ class OpureBot(commands.Bot):
             try:
                 # Check for new sync events since last check
                 cursor = await self.db.execute("""
-                    SELECT event_type, user_id, data, timestamp, priority
+                    SELECT event_type, user_id, data, timestamp
                     FROM sync_events 
                     WHERE timestamp > ?
                     ORDER BY timestamp ASC
@@ -947,7 +947,7 @@ class OpureBot(commands.Bot):
                 events = await cursor.fetchall()
                 
                 for event in events:
-                    event_type, user_id, data_json, timestamp, priority = event
+                    event_type, user_id, data_json, timestamp = event
                     
                     try:
                         # Parse JSON data
@@ -958,8 +958,7 @@ class OpureBot(commands.Bot):
                             'event_type': event_type,
                             'user_id': user_id,
                             'data': data,
-                            'timestamp': timestamp,
-                            'priority': priority
+                            'timestamp': timestamp
                         }
                         
                         # Broadcast to WebSocket channels immediately (0-latency)
