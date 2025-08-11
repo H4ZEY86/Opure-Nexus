@@ -61,23 +61,39 @@ class AIHubView(BaseCommandHubView):
         return embed
     
     async def _get_personality_embed(self) -> discord.Embed:
-        """Personality mode selection embed"""
-        available_modes = self.ai_engine.get_available_modes()
-        current_mode = self.ai_engine.current_mode
+        """Personality configuration embed"""
+        current_mode = self.ai_engine.get_user_personality_mode(self.user.id)
+        available_modes = self.ai_engine.get_available_personality_modes()
         
-        mode_descriptions = {
-            "creative": "🎨 Focused on artistic expression and innovative ideas",
-            "support": "🛠️ Technical assistance and problem-solving",
-            "fun": "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish personality, Rangers FC & Juice WRLD enthusiast",
-            "gaming": "🎮 Gaming expertise and competitive insights",
-            "analysis": "📊 Data interpretation and logical reasoning"
-        }
+        personality_list = []
+        for mode, description in available_modes.items():
+            marker = "🔹 **ACTIVE**" if mode == current_mode else "⚫"
+            personality_list.append(f"{marker} **{mode.title()}**: {description}")
         
-        mode_list = ""
-        for mode in available_modes:
-            status = "🟢 **ACTIVE**" if mode == current_mode else "⚪ Available"
-            description = mode_descriptions.get(mode, "AI personality mode")
-            mode_list += f"**{mode.title()}** {status}\n{description}\n\n"
+        embed = ModernEmbed.create_hub_embed(
+            category=HubCategory.AI,
+            title="Personality Configuration",
+            description="🎭 **Configure Your AI Personality**\n\nChoose how the AI interacts with you:",
+            fields=[
+                {
+                    "name": "🧠 Current Personality",
+                    "value": f"```\n{current_mode.title()}\n```\n{available_modes[current_mode]}",
+                    "inline": False
+                },
+                {
+                    "name": "🎨 Available Personalities",
+                    "value": "\n".join(personality_list),
+                    "inline": False
+                },
+                {
+                    "name": "💡 Tips",
+                    "value": "• Personalities affect all AI interactions\n• Changes apply immediately\n• Each personality has unique traits",
+                    "inline": False
+                }
+            ],
+            footer="Select a personality mode below"
+        )
+        return embed
         
         embed = ModernEmbed.create_hub_embed(
             category=HubCategory.AI,

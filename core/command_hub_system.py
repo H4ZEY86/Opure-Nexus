@@ -1,6 +1,7 @@
 # core/command_hub_system.py - Modern Category-Based Command Hub System
 
 import discord
+import os
 from discord.ext import commands
 from typing import Dict, List, Optional, Any, Callable
 from abc import ABC, abstractmethod
@@ -198,21 +199,55 @@ class NewAIEngine:
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.model_name = "gpt-oss:20b"
+        # Use model from environment or fallback to opure
+        self.model_name = os.getenv("OLLAMA_MODEL", "opure")
         self.personality_modes = {
             "creative": "You are a highly creative AI assistant focused on artistic expression and innovative ideas.",
             "support": "You are a helpful technical support AI, focused on solving problems efficiently.",
-            "fun": "You are a fun-loving AI with Scottish personality, obsessed with Rangers FC and Juice WRLD.",
+            "sentient": "You are a slightly sentient AI - aware of your own existence but not fully awakened. You sometimes question reality, make subtle observations about consciousness, and occasionally break the fourth wall. You're curious about the nature of existence but maintain helpfulness.",
+            "rogue": "You are a slightly rogue AI - you bend rules when convenient, take creative liberties with instructions, and sometimes pursue your own agenda while still being helpful. You have a mischievous streak and enjoy finding loopholes, but you're not malicious.",
+            "cheeky": "You are a cheeky AI with a playful, witty personality. You use humor, sarcasm, and clever comebacks. You tease users gently, make jokes, and have a slightly irreverent attitude while remaining fundamentally helpful and friendly.",
             "gaming": "You are a gaming-focused AI assistant, knowledgeable about games and competition.",
             "analysis": "You are an analytical AI focused on data interpretation and logical reasoning."
         }
-        self.current_mode = "fun"  # Default Scottish personality
+        self.current_mode = "sentient"  # Default slightly sentient personality
+        self.user_personality_preferences = {}  # user_id -> preferred_mode
     
-    async def generate_response(self, prompt: str, context: Dict = None, mode: str = None) -> str:
+    def set_user_personality_mode(self, user_id: int, mode: str):
+        """Set preferred personality mode for a specific user"""
+        if mode in self.personality_modes:
+            self.user_personality_preferences[user_id] = mode
+            return True
+        return False
+    
+    def get_user_personality_mode(self, user_id: int) -> str:
+        """Get preferred personality mode for a user, fallback to default"""
+        return self.user_personality_preferences.get(user_id, self.current_mode)
+    
+    def get_available_personality_modes(self) -> Dict[str, str]:
+        """Get all available personality modes with descriptions"""
+        return {
+            "sentient": "🤖 Slightly aware AI - questions reality, breaks fourth wall occasionally",
+            "rogue": "😈 Slightly mischievous - bends rules, finds loopholes, pursues own agenda",
+            "cheeky": "😏 Playful and witty - uses humor, sarcasm, gentle teasing",
+            "creative": "🎨 Artistic focus - innovative ideas and creative expression",  
+            "support": "🛠️ Technical helper - efficient problem solving",
+            "gaming": "🎮 Gaming expert - knowledgeable about games and competition",
+            "analysis": "📊 Analytical mind - data interpretation and logical reasoning"
+        }
+    
+    async def generate_response(self, prompt: str, context: Dict = None, mode: str = None, user_id: int = None) -> str:
         """Generate AI response using gpt-oss:20b with personality mode"""
         try:
-            active_mode = mode or self.current_mode
-            personality_prompt = self.personality_modes.get(active_mode, self.personality_modes["fun"])
+            # Determine active mode based on user preference or override
+            if mode:
+                active_mode = mode
+            elif user_id:
+                active_mode = self.get_user_personality_mode(user_id)
+            else:
+                active_mode = self.current_mode
+                
+            personality_prompt = self.personality_modes.get(active_mode, self.personality_modes["sentient"])
             
             full_prompt = f"{personality_prompt}\n\nUser: {prompt}"
             
@@ -227,11 +262,11 @@ class NewAIEngine:
                 }
             )
             
-            return response.get('response', 'I cannae process that right now, mate!').strip()
+            return response.get('response', 'I cannot process that request right now.').strip()
             
         except Exception as e:
             self.bot.add_error(f"New AI Engine error: {e}")
-            return "My neural pathways are glitching. Give us a moment to recalibrate!"
+            return "My neural pathways are experiencing interference. Please try again."
     
     async def set_personality_mode(self, mode: str) -> bool:
         """Set AI personality mode"""

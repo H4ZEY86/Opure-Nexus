@@ -705,7 +705,9 @@ Response format: {{"items": [...]}}"""
         
         if action == "create":
             # Check if already in party
-            async with self.bot.db.execute("SELECT party_id FROM rpg_parties WHERE members LIKE ?", (f'%{interaction.user.id}%',)) as cursor:
+            # Use parameterized query to prevent SQL injection
+            user_id_str = str(interaction.user.id)  # Ensure it's a string
+            async with self.bot.db.execute("SELECT party_id FROM rpg_parties WHERE members LIKE ?", (f'%{user_id_str}%',)) as cursor:
                 existing_party = await cursor.fetchone()
             
             if existing_party:
@@ -730,7 +732,9 @@ Response format: {{"items": [...]}}"""
         
         elif action == "view":
             # Find user's party
-            async with self.bot.db.execute("SELECT * FROM rpg_parties WHERE members LIKE ?", (f'%{interaction.user.id}%',)) as cursor:
+            # Use parameterized query to prevent SQL injection
+            user_id_str = str(interaction.user.id)  # Ensure it's a string
+            async with self.bot.db.execute("SELECT * FROM rpg_parties WHERE members LIKE ?", (f'%{user_id_str}%',)) as cursor:
                 party = await cursor.fetchone()
             
             if not party:

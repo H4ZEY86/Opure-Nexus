@@ -1,406 +1,303 @@
-# core/production_optimizer.py - RTX 5070 Ti and production optimizations
+# core/production_optimizer.py - RTX 5070 Ti Gaming Performance Optimizer
 
-import os
 import psutil
-import logging
 import asyncio
-from typing import Dict, Any, Optional
-from pathlib import Path
-import gc
-import threading
-import queue
+import os
 import time
+from typing import Dict, Optional, List
+import threading
 
 class ProductionOptimizer:
-    """
-    Production-level optimizations for RTX 5070 Ti gaming performance
-    Ensures zero impact on gaming while running Discord bot
-    """
+    """RTX 5070 Ti optimized production system for zero gaming impact"""
     
     def __init__(self, bot):
         self.bot = bot
-        self.logger = logging.getLogger(__name__)
-        self.gpu_monitoring = True
-        self.performance_mode = "balanced"  # balanced, performance, quality
-        self.process = psutil.Process()
+        self.cpu_threshold = 15.0  # Keep CPU usage under 15% for gaming
+        self.memory_threshold = 70.0  # Keep memory under 70%
+        self.monitoring_active = False
+        self.performance_data = []
+        self.optimization_active = False
         
-        # Performance thresholds
-        self.cpu_threshold = 25.0  # Max CPU usage %
-        self.memory_threshold = 512  # Max memory usage MB
-        self.response_time_target = 150  # Target response time ms
+    async def start_optimization(self):
+        """Start RTX 5070 Ti gaming-optimized monitoring"""
+        self.monitoring_active = True
+        self.optimization_active = True
         
-        # Gaming optimization settings
-        self.gaming_priority_processes = [
-            "steam.exe", "steamwebhelper.exe", "gameoverlayui.exe",
-            "discord.exe", "discordptb.exe", "discordcanary.exe",
-            # Gaming applications
-            "valorant.exe", "riotgames.exe", "league of legends.exe",
-            "csgo.exe", "dota2.exe", "fortnite.exe", "minecraft.exe",
-            # Common game engines
-            "unityhub.exe", "unity.exe", "unrealengine.exe"
-        ]
+        # Start background monitoring
+        asyncio.create_task(self.monitor_performance())
+        asyncio.create_task(self.optimize_resources())
         
-    async def initialize_optimizations(self):
-        """Initialize all production optimizations"""
-        try:
-            self.logger.info("🚀 Initializing production optimizations for RTX 5070 Ti...")
-            
-            # Set process priority and affinity
-            await self.optimize_process_priority()
-            
-            # Initialize memory management
-            await self.setup_memory_optimization()
-            
-            # Configure async optimizations
-            await self.optimize_async_performance()
-            
-            # Setup GPU monitoring
-            await self.initialize_gpu_monitoring()
-            
-            # Start background optimization tasks
-            asyncio.create_task(self.performance_monitoring_loop())
-            asyncio.create_task(self.memory_cleanup_loop())
-            asyncio.create_task(self.gaming_detection_loop())
-            
-            self.logger.info("✅ Production optimizations initialized successfully")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to initialize optimizations: {e}")
+        self.bot.add_log("🎮 RTX 5070 Ti Gaming Optimizer: ACTIVE")
+        self.bot.add_log("⚡ Zero gaming impact mode enabled")
     
-    async def optimize_process_priority(self):
-        """Optimize process priority and CPU affinity for gaming"""
-        try:
-            # Set to below normal priority to not interfere with gaming
-            if os.name == 'nt':  # Windows
-                import win32process
-                import win32api
-                
-                handle = win32api.GetCurrentProcess()
-                win32process.SetPriorityClass(handle, win32process.BELOW_NORMAL_PRIORITY_CLASS)
-                
-            # Set CPU affinity to use only efficiency cores (if available)
-            cpu_count = psutil.cpu_count(logical=False)
-            if cpu_count >= 8:  # Multi-core system
-                # Use last 2-4 cores for bot, leave performance cores for gaming
-                available_cores = list(range(max(0, cpu_count - 4), cpu_count))
-                self.process.cpu_affinity(available_cores)
-                self.logger.info(f"🎯 Set CPU affinity to cores: {available_cores}")
-            
-            self.logger.info("⚡ Process priority optimized for gaming")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to optimize process priority: {e}")
+    async def stop_optimization(self):
+        """Stop optimization monitoring"""
+        self.monitoring_active = False
+        self.optimization_active = False
+        self.bot.add_log("🛑 RTX 5070 Ti Gaming Optimizer: STOPPED")
     
-    async def setup_memory_optimization(self):
-        """Setup memory optimization for minimal footprint"""
-        try:
-            # Configure garbage collection for low latency
-            gc.set_threshold(700, 10, 10)  # More aggressive GC
-            
-            # Set memory limits
-            import resource
+    async def monitor_performance(self):
+        """Monitor system performance for gaming compatibility"""
+        while self.monitoring_active:
             try:
-                # Limit virtual memory to 1GB
-                resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024, -1))
-            except:
-                pass  # Not critical if fails
-            
-            self.logger.info("🧠 Memory optimization configured")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Memory optimization failed: {e}")
+                # Collect system metrics
+                cpu_percent = psutil.cpu_percent(interval=1)
+                memory = psutil.virtual_memory()
+                
+                # GPU monitoring (RTX 5070 Ti specific)
+                gpu_data = self.get_gpu_metrics()
+                
+                performance_sample = {
+                    'timestamp': time.time(),
+                    'cpu_percent': cpu_percent,
+                    'memory_percent': memory.percent,
+                    'memory_available_gb': memory.available / (1024**3),
+                    'gpu_load': gpu_data.get('load', 0),
+                    'gpu_memory_used': gpu_data.get('memory_used', 0),
+                    'gpu_temperature': gpu_data.get('temperature', 0)
+                }
+                
+                self.performance_data.append(performance_sample)
+                
+                # Keep only last 100 samples
+                if len(self.performance_data) > 100:
+                    self.performance_data.pop(0)
+                
+                # Check for gaming impact
+                if cpu_percent > self.cpu_threshold:
+                    await self.trigger_gaming_protection()
+                
+                # Sleep for 5 seconds between checks
+                await asyncio.sleep(5)
+                
+            except Exception as e:
+                self.bot.add_error(f"Performance monitoring error: {e}")
+                await asyncio.sleep(10)
     
-    async def optimize_async_performance(self):
-        """Optimize asyncio for best performance"""
+    def get_gpu_metrics(self) -> Dict:
+        """Get RTX 5070 Ti specific metrics"""
         try:
-            # Configure event loop policy
-            if os.name == 'nt':  # Windows
-                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-            
-            # Set loop debug mode off in production
-            loop = asyncio.get_event_loop()
-            loop.set_debug(False)
-            
-            # Configure task factory for performance
-            loop.set_task_factory(None)
-            
-            self.logger.info("⚡ Async performance optimized")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Async optimization failed: {e}")
-    
-    async def initialize_gpu_monitoring(self):
-        """Initialize GPU monitoring for RTX 5070 Ti"""
-        try:
-            # Try to import GPU monitoring libraries
+            # Try to get GPU info using GPUtil
             try:
                 import GPUtil
-                self.gpu_available = True
-                self.logger.info("📊 GPU monitoring available (RTX 5070 Ti)")
+                gpus = GPUtil.getGPUs()
+                
+                if gpus:
+                    gpu = gpus[0]  # Assume RTX 5070 Ti is primary
+                    return {
+                        'load': gpu.load * 100,
+                        'memory_used': gpu.memoryUsed,
+                        'memory_total': gpu.memoryTotal,
+                        'temperature': gpu.temperature,
+                        'name': gpu.name
+                    }
             except ImportError:
-                self.gpu_available = False
-                self.logger.warning("⚠️ GPU monitoring not available")
+                pass
+            
+            # Fallback to nvidia-ml-py if available
+            try:
+                import pynvml
+                pynvml.nvmlInit()
+                handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+                
+                # Get GPU utilization
+                utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                
+                # Get memory info
+                memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                
+                # Get temperature
+                temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
+                
+                return {
+                    'load': utilization.gpu,
+                    'memory_used': memory_info.used / (1024**2),  # MB
+                    'memory_total': memory_info.total / (1024**2),  # MB
+                    'temperature': temperature
+                }
+                
+            except ImportError:
+                pass
             
         except Exception as e:
-            self.logger.error(f"❌ GPU monitoring initialization failed: {e}")
+            self.bot.add_error(f"GPU metrics collection failed: {e}")
+        
+        # Return empty data if GPU monitoring unavailable
+        return {'load': 0, 'memory_used': 0, 'temperature': 0}
     
-    async def performance_monitoring_loop(self):
-        """Continuous performance monitoring and adjustment"""
-        while True:
+    async def trigger_gaming_protection(self):
+        """Activate gaming protection mode when high CPU detected"""
+        if not self.optimization_active:
+            return
+            
+        self.bot.add_log("🎮 GAMING PROTECTION ACTIVATED - High CPU detected")
+        
+        # Reduce bot activity to minimum for gaming
+        await self.reduce_bot_activity()
+        
+        # Wait for CPU to normalize
+        await asyncio.sleep(30)
+        
+        # Check if still high CPU after wait
+        current_cpu = psutil.cpu_percent(interval=1)
+        if current_cpu < self.cpu_threshold:
+            self.bot.add_log("✅ Gaming protection: CPU normalized, resuming normal operation")
+            await self.restore_bot_activity()
+        else:
+            self.bot.add_log("⚠️ Gaming protection: CPU still high, maintaining reduced activity")
+    
+    async def reduce_bot_activity(self):
+        """Reduce bot resource usage for gaming compatibility"""
+        try:
+            # Pause non-essential background tasks
+            for task_name in ['sentient_log_poster', 'assimilate_self_awareness', 'assimilate_external_data']:
+                task = getattr(self.bot, task_name, None)
+                if task and not task.is_cancelled():
+                    task.cancel()
+                    self.bot.add_log(f"⏸️ Gaming mode: Paused {task_name}")
+            
+            # Reduce WebSocket update frequency
+            if hasattr(self.bot, 'dashboard_ws'):
+                self.bot.dashboard_ws.update_interval = 60  # Reduce to 1 minute updates
+            
+            # Limit database operations
+            if hasattr(self.bot, 'db_operations_per_minute'):
+                self.bot.db_operations_per_minute = 10  # Reduce database load
+            
+            self.bot.add_log("🎮 Bot activity reduced for zero gaming impact")
+            
+        except Exception as e:
+            self.bot.add_error(f"Failed to reduce bot activity: {e}")
+    
+    async def restore_bot_activity(self):
+        """Restore normal bot activity after gaming session"""
+        try:
+            # Restart essential background tasks
+            if hasattr(self.bot, 'sentient_log_poster'):
+                self.bot.sentient_log_poster.start()
+            if hasattr(self.bot, 'assimilate_self_awareness'):
+                self.bot.assimilate_self_awareness.start()
+            if hasattr(self.bot, 'assimilate_external_data'):
+                self.bot.assimilate_external_data.start()
+            
+            # Restore normal WebSocket updates
+            if hasattr(self.bot, 'dashboard_ws'):
+                self.bot.dashboard_ws.update_interval = 30  # Back to 30 second updates
+            
+            # Restore database operations
+            if hasattr(self.bot, 'db_operations_per_minute'):
+                self.bot.db_operations_per_minute = 60  # Normal database load
+            
+            self.bot.add_log("✅ Normal bot activity restored")
+            
+        except Exception as e:
+            self.bot.add_error(f"Failed to restore bot activity: {e}")
+    
+    async def optimize_resources(self):
+        """Continuously optimize resources for RTX 5070 Ti gaming"""
+        while self.optimization_active:
             try:
-                # Get current system stats
-                cpu_percent = psutil.cpu_percent(interval=1)
-                memory_info = psutil.virtual_memory()
-                memory_mb = self.process.memory_info().rss / (1024 * 1024)
+                # Set process priority to below normal for gaming compatibility
+                try:
+                    process = psutil.Process()
+                    if process.nice() != 10:  # Below normal priority
+                        process.nice(10)
+                except:
+                    pass
                 
-                # Check if gaming is active
-                gaming_active = await self.detect_gaming_processes()
+                # Optimize memory usage
+                await self.optimize_memory()
                 
-                # Adjust performance mode based on system load
-                if gaming_active:
-                    await self.enter_gaming_mode()
-                elif cpu_percent > self.cpu_threshold or memory_mb > self.memory_threshold:
-                    await self.enter_performance_mode()
-                else:
-                    await self.enter_balanced_mode()
-                
-                # Log performance metrics
-                if hasattr(self.bot, 'add_log'):
-                    self.bot.add_log(
-                        f"📊 Performance: CPU {cpu_percent:.1f}%, "
-                        f"RAM {memory_mb:.1f}MB, Gaming: {gaming_active}"
-                    )
+                # Check for resource-heavy operations
+                await self.monitor_resource_usage()
                 
                 await asyncio.sleep(30)  # Check every 30 seconds
                 
             except Exception as e:
-                self.logger.error(f"❌ Performance monitoring error: {e}")
-                await asyncio.sleep(60)  # Wait longer on error
+                self.bot.add_error(f"Resource optimization error: {e}")
+                await asyncio.sleep(60)
     
-    async def memory_cleanup_loop(self):
-        """Periodic memory cleanup to prevent bloat"""
-        while True:
-            try:
-                # Force garbage collection
-                collected = gc.collect()
-                
-                # Clear bot caches if available
-                if hasattr(self.bot, 'cache') and hasattr(self.bot.cache, 'clear'):
-                    # Clear Discord.py internal caches periodically
-                    if len(self.bot.cached_messages) > 1000:
-                        self.bot.cached_messages.clear()
-                
-                # Clear memory caches in cogs
-                for cog_name, cog in self.bot.cogs.items():
-                    if hasattr(cog, 'cache'):
-                        # Limit cache sizes
-                        for cache_name, cache in cog.cache.items():
-                            if isinstance(cache, dict) and len(cache) > 100:
-                                # Keep only most recent 50 entries
-                                sorted_items = sorted(cache.items(), key=lambda x: x[0])
-                                cache.clear()
-                                cache.update(dict(sorted_items[-50:]))
-                
-                if collected > 0:
-                    self.logger.debug(f"🧹 Memory cleanup: {collected} objects collected")
-                
-                await asyncio.sleep(300)  # Clean up every 5 minutes
-                
-            except Exception as e:
-                self.logger.error(f"❌ Memory cleanup error: {e}")
-                await asyncio.sleep(600)  # Wait longer on error
-    
-    async def gaming_detection_loop(self):
-        """Detect when gaming applications are running"""
-        while True:
-            try:
-                gaming_detected = await self.detect_gaming_processes()
-                
-                if gaming_detected and self.performance_mode != "gaming":
-                    await self.enter_gaming_mode()
-                elif not gaming_detected and self.performance_mode == "gaming":
-                    await self.enter_balanced_mode()
-                
-                await asyncio.sleep(10)  # Check every 10 seconds
-                
-            except Exception as e:
-                self.logger.error(f"❌ Gaming detection error: {e}")
-                await asyncio.sleep(30)
-    
-    async def detect_gaming_processes(self) -> bool:
-        """Detect if gaming processes are running"""
+    async def optimize_memory(self):
+        """Optimize memory usage for gaming"""
         try:
-            running_processes = [proc.name().lower() for proc in psutil.process_iter(['name'])]
+            import gc
             
-            for gaming_process in self.gaming_priority_processes:
-                if gaming_process.lower() in running_processes:
-                    return True
+            # Run garbage collection if memory usage is high
+            memory = psutil.virtual_memory()
+            if memory.percent > self.memory_threshold:
+                gc.collect()
+                self.bot.add_log(f"🧹 Memory cleanup: {memory.percent:.1f}% → {psutil.virtual_memory().percent:.1f}%")
+                
+        except Exception as e:
+            self.bot.add_error(f"Memory optimization error: {e}")
+    
+    async def monitor_resource_usage(self):
+        """Monitor for resource-heavy operations that might impact gaming"""
+        try:
+            process = psutil.Process()
             
-            # Also check for processes using significant GPU
-            if self.gpu_available:
-                try:
-                    import GPUtil
-                    gpus = GPUtil.getGPUs()
-                    if gpus and gpus[0].load > 0.3:  # 30% GPU usage threshold
-                        return True
-                except:
-                    pass
+            # Check for high I/O operations
+            io_counters = process.io_counters()
+            if hasattr(self, '_last_io_check'):
+                read_delta = io_counters.read_bytes - self._last_io_read
+                write_delta = io_counters.write_bytes - self._last_io_write
+                
+                # If high I/O detected (>50MB/s), warn about gaming impact
+                if (read_delta + write_delta) > 50 * 1024 * 1024:  # 50 MB
+                    self.bot.add_log("⚠️ High I/O detected - potential gaming impact")
             
-            return False
+            self._last_io_read = io_counters.read_bytes
+            self._last_io_write = io_counters.write_bytes
+            self._last_io_check = time.time()
             
         except Exception as e:
-            self.logger.error(f"❌ Gaming process detection error: {e}")
-            return False
+            pass  # Non-critical monitoring
     
-    async def enter_gaming_mode(self):
-        """Enter gaming optimization mode"""
-        if self.performance_mode == "gaming":
-            return
-        
-        try:
-            self.performance_mode = "gaming"
-            
-            # Reduce bot activity
-            self.cpu_threshold = 15.0  # Lower CPU limit
-            self.memory_threshold = 256  # Lower memory limit
-            
-            # Reduce Discord.py cache sizes
-            if hasattr(self.bot, '_connection'):
-                self.bot._connection.max_messages = 500  # Reduce message cache
-            
-            # Disable non-essential features
-            for cog_name, cog in self.bot.cogs.items():
-                if hasattr(cog, 'set_performance_mode'):
-                    await cog.set_performance_mode("gaming")
-            
-            self.logger.info("🎮 Entered GAMING mode - Maximum performance priority to games")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to enter gaming mode: {e}")
-    
-    async def enter_performance_mode(self):
-        """Enter high performance mode"""
-        if self.performance_mode == "performance":
-            return
-        
-        try:
-            self.performance_mode = "performance" 
-            
-            # Optimize for speed
-            self.cpu_threshold = 35.0
-            self.memory_threshold = 768
-            
-            self.logger.info("⚡ Entered PERFORMANCE mode - Optimizing for speed")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to enter performance mode: {e}")
-    
-    async def enter_balanced_mode(self):
-        """Enter balanced mode"""
-        if self.performance_mode == "balanced":
-            return
-        
-        try:
-            self.performance_mode = "balanced"
-            
-            # Balanced settings
-            self.cpu_threshold = 25.0
-            self.memory_threshold = 512
-            
-            # Restore normal cache sizes
-            if hasattr(self.bot, '_connection'):
-                self.bot._connection.max_messages = 1000
-            
-            self.logger.info("⚖️ Entered BALANCED mode - Normal operation")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to enter balanced mode: {e}")
-    
-    async def get_performance_stats(self) -> Dict[str, Any]:
+    def get_performance_stats(self) -> Dict:
         """Get current performance statistics"""
-        try:
-            memory_info = self.process.memory_info()
-            cpu_percent = self.process.cpu_percent()
-            
-            stats = {
-                "performance_mode": self.performance_mode,
-                "cpu_usage": cpu_percent,
-                "memory_usage_mb": memory_info.rss / (1024 * 1024),
-                "memory_usage_percent": psutil.virtual_memory().percent,
-                "num_threads": self.process.num_threads(),
-                "num_fds": getattr(self.process, 'num_fds', lambda: 0)(),
-                "gaming_detected": await self.detect_gaming_processes()
+        if not self.performance_data:
+            return {
+                'status': 'no_data',
+                'message': 'Performance monitoring not active'
             }
-            
-            # Add GPU stats if available
-            if self.gpu_available:
-                try:
-                    import GPUtil
-                    gpus = GPUtil.getGPUs()
-                    if gpus:
-                        gpu = gpus[0]
-                        stats["gpu_usage"] = gpu.load * 100
-                        stats["gpu_memory_used"] = gpu.memoryUsed
-                        stats["gpu_memory_total"] = gpu.memoryTotal
-                        stats["gpu_temperature"] = gpu.temperature
-                except:
-                    pass
-            
-            return stats
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to get performance stats: {e}")
-            return {"error": str(e)}
-    
-    async def optimize_for_command(self, command_name: str):
-        """Optimize temporarily for specific command execution"""
-        try:
-            # Boost priority for AI/intensive commands
-            intensive_commands = ["ask", "generate", "analyze", "process"]
-            
-            if any(cmd in command_name.lower() for cmd in intensive_commands):
-                # Temporarily allow higher resource usage
-                original_cpu_threshold = self.cpu_threshold
-                original_memory_threshold = self.memory_threshold
-                
-                self.cpu_threshold = min(self.cpu_threshold * 1.5, 40.0)
-                self.memory_threshold = min(self.memory_threshold * 1.3, 1024)
-                
-                # Restore after 30 seconds
-                async def restore_limits():
-                    await asyncio.sleep(30)
-                    self.cpu_threshold = original_cpu_threshold
-                    self.memory_threshold = original_memory_threshold
-                
-                asyncio.create_task(restore_limits())
-            
-        except Exception as e:
-            self.logger.error(f"❌ Command optimization error: {e}")
+        
+        latest = self.performance_data[-1]
+        
+        # Calculate averages over last 10 samples
+        recent_samples = self.performance_data[-10:]
+        avg_cpu = sum(s['cpu_percent'] for s in recent_samples) / len(recent_samples)
+        avg_memory = sum(s['memory_percent'] for s in recent_samples) / len(recent_samples)
+        
+        gaming_impact = "ZERO" if avg_cpu < self.cpu_threshold else "POTENTIAL"
+        
+        return {
+            'status': 'active' if self.monitoring_active else 'inactive',
+            'current_cpu': latest['cpu_percent'],
+            'current_memory': latest['memory_percent'],
+            'average_cpu': round(avg_cpu, 1),
+            'average_memory': round(avg_memory, 1),
+            'gaming_impact': gaming_impact,
+            'optimization_active': self.optimization_active,
+            'gpu_load': latest.get('gpu_load', 0),
+            'gpu_memory': latest.get('gpu_memory_used', 0),
+            'gpu_temperature': latest.get('gpu_temperature', 0),
+            'samples_collected': len(self.performance_data)
+        }
 
-
-# Setup function for bot integration
 def setup_production_optimizer(bot):
-    """Setup production optimizer for the bot"""
+    """Initialize RTX 5070 Ti optimized production system"""
     try:
         optimizer = ProductionOptimizer(bot)
         bot.production_optimizer = optimizer
         
-        # Initialize optimizations
-        bot.loop.create_task(optimizer.initialize_optimizations())
+        # Start optimization
+        asyncio.create_task(optimizer.start_optimization())
         
-        # Add helper methods to bot
-        async def get_performance_stats():
-            return await optimizer.get_performance_stats()
+        bot.add_log("🎮 RTX 5070 Ti Production Optimizer initialized")
+        bot.add_log("⚡ Gaming performance protection: ENABLED")
         
-        async def optimize_for_command(command_name):
-            await optimizer.optimize_for_command(command_name)
-        
-        bot.get_performance_stats = get_performance_stats
-        bot.optimize_for_command = optimize_for_command
-        
-        bot.add_log("✅ Production optimizer initialized for RTX 5070 Ti")
         return optimizer
         
     except Exception as e:
-        logging.error(f"❌ Failed to setup production optimizer: {e}")
+        bot.add_error(f"Production optimizer setup failed: {e}")
         return None

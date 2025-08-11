@@ -2,6 +2,7 @@
 
 import os
 import asyncio
+import re
 try:
     import aiosqlite
 except ImportError:
@@ -184,12 +185,15 @@ class OpureBot(commands.Bot):
                 is_ollama_ready = True
                 self.add_log("✓ Ollama server is responsive.")
                 break
-            except (httpx.ConnectError, asyncio.exceptions.TimeoutError):
+            except (httpx.ConnectError, asyncio.exceptions.TimeoutError, ConnectionError, Exception):
                 self.add_log(f"Ollama not ready, retrying in 1 second... ({i+1}/5)")
                 await asyncio.sleep(1)
 
         if not is_ollama_ready:
             self.add_error("Could not connect to Ollama after 5 seconds. AI features will fail.")
+            self.ollama_available = False
+        else:
+            self.ollama_available = True
 
         try:
             service_account_key_path = Path.cwd() / ".env_firebase_key.json"
@@ -270,7 +274,11 @@ class OpureBot(commands.Bot):
         ]
         for col_name, col_def in missing_columns:
             try:
-                await self.db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_name} {col_def}")
+                # Validate column name and definition to prevent SQL injection
+                if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col_name) and re.match(r'^[A-Z]+(\([0-9]+\))?( DEFAULT [^;]*)?$', col_def):
+                    await self.db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_name} {col_def}")
+                else:
+                    self.add_error(f"Invalid column specification: {col_name} {col_def}")
             except:
                 pass  # Column already exists
         await self.db.execute("""CREATE TABLE IF NOT EXISTS daily_quests (
@@ -341,18 +349,18 @@ class OpureBot(commands.Bot):
                     FOR EACH ROW
                 BEGIN
                     INSERT INTO sync_events (
-                        event_type, user_id, data, timestamp, priority
+                        event_type, data, timestamp, processed
                     ) VALUES (
                         'user_stats_update', 
-                        NEW.user_id, 
                         json_object(
-                            'fragments_old', OLD.fragments,
-                            'fragments_new', NEW.fragments,
+                            'user_id', NEW.user_id,
                             'commands_old', OLD.commands_used,
-                            'commands_new', NEW.commands_used
+                            'commands_new', NEW.commands_used,
+                            'stats_old', json_object('messages_sent', OLD.messages_sent, 'achievements', OLD.achievements_earned),
+                            'stats_new', json_object('messages_sent', NEW.messages_sent, 'achievements', NEW.achievements_earned)
                         ),
                         unixepoch(),
-                        'high'
+                        0
                     );
                 END;
             """)
@@ -365,17 +373,17 @@ class OpureBot(commands.Bot):
                     WHEN OLD.fragments != NEW.fragments
                 BEGIN
                     INSERT INTO sync_events (
-                        event_type, user_id, data, timestamp, priority
+                        event_type, data, timestamp, processed
                     ) VALUES (
                         'economy_update',
-                        NEW.user_id,
                         json_object(
+                            'user_id', NEW.user_id,
                             'old_balance', OLD.fragments,
                             'new_balance', NEW.fragments,
                             'change', NEW.fragments - OLD.fragments
                         ),
                         unixepoch(),
-                        'high'
+                        0
                     );
                 END;
             """)
@@ -455,12 +463,19 @@ class OpureBot(commands.Bot):
             return "My neural pathways are fluctuating. I cannot respond right now, ken!"
 
     async def post_victory_log(self, user: discord.User, difficulty: str, final_narrative: str):
+        # Skip AI generation if Ollama is not available to prevent spam
+        if not hasattr(self, 'ollama_available') or not self.ollama_available:
+            return
+            
         log_prompt = f"A user, callsign '{user.display_name}', has just completed a mission at {difficulty} difficulty. Their final action was: {final_narrative}. Write a public log entry about this event in your cryptic, slightly ominous style."
         try:
             ai_engine = NewAIEngine(self)
             log_content = await ai_engine.generate_response(log_prompt, mode="sentient")
         except Exception as e:
-            self.add_error(f"VICTORY LOG: Ollama Error. {e}")
+            # Only log once, then disable to prevent spam
+            if hasattr(self, 'ollama_available') and self.ollama_available:
+                self.add_error(f"AI Engine connection lost. Disabling AI features to prevent spam.")
+                self.ollama_available = False
             return
         now = datetime.datetime.now(datetime.timezone.utc)
         await self.db.execute("INSERT INTO sentient_logs (content, timestamp, log_type) VALUES (?, ?, ?)", (log_content, now.isoformat(), "victory"))

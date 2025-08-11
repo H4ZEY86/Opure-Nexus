@@ -1,318 +1,332 @@
-# core/sync_integration.py - Integration Layer for Real-Time Synchronization
+# core/sync_integration.py - Integration layer for real-time synchronization
 
 import asyncio
+import json
 import time
-from typing import Dict, Any, Optional
-from .realtime_sync_system import (
-    RealTimeSyncManager, SyncEvent, SyncEventType, EventPriority,
-    emit_command_event, emit_ai_response_event, emit_economy_event
-)
+from typing import Dict, Any, Optional, List
+from core.realtime_sync_system import SyncEvent, SyncEventType, EventPriority, RealTimeSyncManager
 
 class SyncIntegrationLayer:
-    """Integration layer that connects the sync system with all bot components"""
+    """Integration layer that connects all bot systems with real-time sync"""
     
     def __init__(self, bot, sync_manager: RealTimeSyncManager):
         self.bot = bot
         self.sync_manager = sync_manager
-        self.integration_hooks = {}
+        self.integration_handlers = {}
+        self.last_sync_timestamps = {}
         
     async def initialize(self):
-        """Initialize all sync integrations"""
-        await self._setup_bot_hooks()
-        await self._setup_hub_hooks()
-        await self._setup_ai_hooks()
-        await self._setup_economy_hooks()
-        await self._setup_performance_hooks()
-        
-        self.bot.add_log("🔗 Sync integration layer initialized")
-    
-    async def _setup_bot_hooks(self):
-        """Set up hooks for Discord bot events"""
-        
-        # Override bot's track_command_usage to emit sync events
-        original_track_command_usage = self.bot.track_command_usage
-        
-        async def track_command_usage_with_sync(interaction, command_name):
-            start_time = time.time()
-            success = True
+        """Initialize the sync integration layer"""
+        try:
+            # Register integration handlers for different system events
+            await self.register_integration_handlers()
             
-            try:
-                await original_track_command_usage(interaction, command_name)
-            except Exception as e:
-                success = False
-                raise e
-            finally:
-                # Emit command execution event
-                await emit_command_event(
-                    self.sync_manager,
-                    command_name,
-                    interaction.user.id,
-                    interaction.guild_id or 0,
-                    success
-                )
-                
-                # Emit performance metrics
-                execution_time = (time.time() - start_time) * 1000
-                await self._emit_performance_event('command_execution', {
-                    'command': command_name,
-                    'execution_time_ms': execution_time,
-                    'success': success
-                })
-        
-        # Replace the method
-        self.bot.track_command_usage = track_command_usage_with_sync
-        
-        # Hook into error reporting
-        original_add_error = self.bot.add_error
-        
-        def add_error_with_sync(message: str):
-            original_add_error(message)
+            # Start periodic sync health checks
+            asyncio.create_task(self.sync_health_monitor())
             
-            # Emit error event asynchronously
-            asyncio.create_task(self.sync_manager.emit_event(SyncEvent(
-                event_type=SyncEventType.ERROR_OCCURRED,
-                priority=EventPriority.HIGH,
-                data={
-                    'error_message': message,
-                    'component': 'discord_bot'
-                },
-                timestamp=time.time(),
-                source_system='discord_bot'
-            )))
-        
-        self.bot.add_error = add_error_with_sync
+            self.bot.add_log("✅ Sync integration layer initialized")
+            
+        except Exception as e:
+            self.bot.add_error(f"Sync integration initialization failed: {e}")
     
-    async def _setup_hub_hooks(self):
-        """Set up hooks for hub system events"""
+    async def register_integration_handlers(self):
+        """Register handlers for different system integrations"""
         
-        # Hook into hub interactions
-        def create_hub_hook(hub_category):
-            async def on_hub_interaction(interaction, view_name):
-                await self.sync_manager.emit_event(SyncEvent(
-                    event_type=SyncEventType.HUB_NAVIGATION,
-                    priority=EventPriority.MEDIUM,
-                    data={
-                        'hub_category': hub_category,
-                        'view_name': view_name,
-                        'user_display_name': interaction.user.display_name
-                    },
-                    timestamp=time.time(),
-                    source_system='hub_system',
-                    user_id=interaction.user.id,
-                    guild_id=interaction.guild_id
+        # Music System Integration
+        async def music_integration_handler(event: SyncEvent):
+            if event.event_type in [SyncEventType.MUSIC_QUEUED, SyncEventType.NOW_PLAYING_CHANGED]:
+                await self.sync_music_data(event.data, event.user_id)
+        
+        # Economy System Integration
+        async def economy_integration_handler(event: SyncEvent):
+            if event.event_type == SyncEventType.FRAGMENT_TRANSACTION:
+                await self.sync_economy_data(event.data, event.user_id)
+        
+        # AI System Integration
+        async def ai_integration_handler(event: SyncEvent):
+            if event.event_type == SyncEventType.AI_RESPONSE_GENERATED:
+                await self.sync_ai_data(event.data, event.user_id)
+        
+        # Gaming System Integration
+        async def gaming_integration_handler(event: SyncEvent):
+            if event.event_type in [SyncEventType.GAME_SESSION_START, SyncEventType.ACHIEVEMENT_UNLOCKED]:
+                await self.sync_gaming_data(event.data, event.user_id)
+        
+        # Register handlers with sync manager
+        self.sync_manager.subscribe_to_event(SyncEventType.MUSIC_QUEUED, music_integration_handler)
+        self.sync_manager.subscribe_to_event(SyncEventType.NOW_PLAYING_CHANGED, music_integration_handler)
+        self.sync_manager.subscribe_to_event(SyncEventType.FRAGMENT_TRANSACTION, economy_integration_handler)
+        self.sync_manager.subscribe_to_event(SyncEventType.AI_RESPONSE_GENERATED, ai_integration_handler)
+        self.sync_manager.subscribe_to_event(SyncEventType.GAME_SESSION_START, gaming_integration_handler)
+        self.sync_manager.subscribe_to_event(SyncEventType.ACHIEVEMENT_UNLOCKED, gaming_integration_handler)
+        
+        self.bot.add_log("✅ Sync integration handlers registered")
+    
+    async def sync_music_data(self, music_data: Dict[str, Any], user_id: int):
+        """Sync music system data across platforms"""
+        try:
+            # Update database with real-time music activity
+            if 'track_title' in music_data:
+                await self.bot.db.execute("""
+                    INSERT INTO music_activity 
+                    (user_id, track_title, artist, action, timestamp) 
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    user_id, 
+                    music_data['track_title'],
+                    music_data.get('artist', 'Unknown'),
+                    music_data.get('action', 'queued'),
+                    time.time()
                 ))
-            return on_hub_interaction
-        
-        # Store hooks for hub cogs to use
-        self.integration_hooks['music_hub'] = create_hub_hook('music')
-        self.integration_hooks['ai_hub'] = create_hub_hook('ai')
-        self.integration_hooks['economy_hub'] = create_hub_hook('economy')
-        self.integration_hooks['gaming_hub'] = create_hub_hook('gaming')
-    
-    async def _setup_ai_hooks(self):
-        """Set up hooks for AI system events"""
-        
-        # Hook into AI response generation
-        async def on_ai_response(user_id: int, prompt: str, response: str, mode: str, generation_time: float):
-            await emit_ai_response_event(
-                self.sync_manager,
-                user_id,
-                prompt,
-                response,
-                mode
-            )
+                await self.bot.db.commit()
             
-            # Also emit performance metrics
-            await self._emit_performance_event('ai_generation', {
-                'generation_time_ms': generation_time * 1000,
-                'prompt_tokens': len(prompt.split()),
-                'response_tokens': len(response.split()),
-                'personality_mode': mode
+            # Broadcast to WebSocket clients (dashboard, activity)
+            await self.broadcast_to_external_systems('music_update', {
+                'user_id': user_id,
+                'data': music_data,
+                'timestamp': time.time()
             })
-        
-        self.integration_hooks['ai_response'] = on_ai_response
-        
-        # Hook into personality mode changes
-        async def on_personality_change(user_id: int, old_mode: str, new_mode: str):
-            await self.sync_manager.emit_event(SyncEvent(
-                event_type=SyncEventType.PERSONALITY_CHANGED,
-                priority=EventPriority.MEDIUM,
-                data={
-                    'old_mode': old_mode,
-                    'new_mode': new_mode
-                },
-                timestamp=time.time(),
-                source_system='ai_engine',
-                user_id=user_id
-            ))
-        
-        self.integration_hooks['personality_change'] = on_personality_change
+            
+            # Send to API for Discord Activity
+            if hasattr(self.bot, 'send_status_to_api'):
+                await self.bot.send_status_to_api({
+                    'type': 'music_activity',
+                    'user_id': user_id,
+                    'data': music_data
+                })
+            
+        except Exception as e:
+            self.bot.add_error(f"Music sync integration failed: {e}")
     
-    async def _setup_economy_hooks(self):
-        """Set up hooks for economy system events"""
-        
-        # Hook into fragment transactions
-        async def on_fragment_transaction(user_id: int, transaction_type: str, amount: int, new_balance: int):
-            await emit_economy_event(
-                self.sync_manager,
-                user_id,
-                transaction_type,
-                amount,
-                new_balance
-            )
-        
-        self.integration_hooks['fragment_transaction'] = on_fragment_transaction
-        
-        # Hook into achievement unlocks
-        async def on_achievement_unlock(user_id: int, achievement_name: str, fragment_reward: int):
-            await self.sync_manager.emit_event(SyncEvent(
-                event_type=SyncEventType.ACHIEVEMENT_UNLOCKED,
-                priority=EventPriority.HIGH,
-                data={
-                    'achievement_name': achievement_name,
-                    'fragment_reward': fragment_reward,
-                    'unlock_time': time.time()
-                },
-                timestamp=time.time(),
-                source_system='achievement_system',
-                user_id=user_id
-            ))
-        
-        self.integration_hooks['achievement_unlock'] = on_achievement_unlock
+    async def sync_economy_data(self, economy_data: Dict[str, Any], user_id: int):
+        """Sync economy system data across platforms"""
+        try:
+            # Real-time balance updates for dashboard and activity
+            current_balance = economy_data.get('new_balance', 0)
+            transaction_amount = economy_data.get('amount', 0)
+            
+            # Broadcast balance change immediately
+            await self.broadcast_to_external_systems('economy_update', {
+                'user_id': user_id,
+                'balance': current_balance,
+                'transaction_amount': transaction_amount,
+                'transaction_type': economy_data.get('transaction_type', 'unknown'),
+                'timestamp': time.time()
+            })
+            
+            # Send to API for real-time Activity updates
+            if hasattr(self.bot, 'send_status_to_api'):
+                await self.bot.send_status_to_api({
+                    'type': 'economy_transaction',
+                    'user_id': user_id,
+                    'data': economy_data
+                })
+            
+            # Update user stats for achievements
+            await self.bot.update_user_stats(user_id, 'economy_transaction', 
+                                           amount=transaction_amount)
+            
+        except Exception as e:
+            self.bot.add_error(f"Economy sync integration failed: {e}")
     
-    async def _setup_performance_hooks(self):
-        """Set up system performance monitoring"""
-        
-        # Start performance monitoring task
-        asyncio.create_task(self._monitor_system_performance())
-        
-    async def _monitor_system_performance(self):
-        """Background task to monitor and emit system performance"""
-        import psutil
-        
+    async def sync_ai_data(self, ai_data: Dict[str, Any], user_id: int):
+        """Sync AI system data across platforms"""
+        try:
+            # Track AI interactions for analytics
+            await self.broadcast_to_external_systems('ai_interaction', {
+                'user_id': user_id,
+                'response_length': ai_data.get('response_length', 0),
+                'personality_mode': ai_data.get('personality_mode', 'unknown'),
+                'processing_time': ai_data.get('generation_time', 0),
+                'timestamp': time.time()
+            })
+            
+            # Update conversation stats
+            await self.bot.update_user_stats(user_id, 'ai_conversation')
+            
+        except Exception as e:
+            self.bot.add_error(f"AI sync integration failed: {e}")
+    
+    async def sync_gaming_data(self, gaming_data: Dict[str, Any], user_id: int):
+        """Sync gaming system data across platforms"""
+        try:
+            # Real-time gaming updates for Activity
+            await self.broadcast_to_external_systems('gaming_update', {
+                'user_id': user_id,
+                'data': gaming_data,
+                'timestamp': time.time()
+            })
+            
+            # Send to API for Discord Activity real-time updates
+            if hasattr(self.bot, 'send_status_to_api'):
+                await self.bot.send_status_to_api({
+                    'type': 'gaming_activity',
+                    'user_id': user_id,
+                    'data': gaming_data
+                })
+            
+            # Update gaming stats
+            if gaming_data.get('action') == 'game_completed':
+                await self.bot.update_user_stats(user_id, 'game_completion')
+            
+        except Exception as e:
+            self.bot.add_error(f"Gaming sync integration failed: {e}")
+    
+    async def broadcast_to_external_systems(self, event_type: str, data: Dict[str, Any]):
+        """Broadcast data to all connected external systems"""
+        try:
+            # WebSocket to dashboard
+            if hasattr(self.bot, 'websocket_integration'):
+                await self.bot.websocket_integration.broadcast({
+                    'type': event_type,
+                    'data': data
+                })
+            
+            # WebSocket to activity clients (if different)
+            if hasattr(self.bot, 'activity_websocket'):
+                await self.bot.activity_websocket.broadcast({
+                    'type': event_type,
+                    'data': data
+                })
+                
+        except Exception as e:
+            self.bot.add_error(f"External system broadcast failed: {e}")
+    
+    async def sync_health_monitor(self):
+        """Monitor sync system health and performance"""
         while True:
             try:
-                # Get system metrics
-                cpu_percent = psutil.cpu_percent()
-                memory = psutil.virtual_memory()
-                disk = psutil.disk_usage('/')
+                # Check sync manager health
+                if self.sync_manager:
+                    metrics = self.sync_manager.get_performance_metrics()
+                    
+                    # Alert if sync is unhealthy
+                    if metrics['error_count'] > 50:
+                        self.bot.add_error(f"High sync error count: {metrics['error_count']}")
+                    
+                    if metrics['average_latency_ms'] > 1000:
+                        self.bot.add_log(f"High sync latency: {metrics['average_latency_ms']}ms")
+                    
+                    # Log health status every 5 minutes
+                    self.last_sync_timestamps['health_check'] = time.time()
                 
-                # Get bot-specific metrics
-                bot_latency = self.bot.latency * 1000 if self.bot.is_ready() else 0
-                guild_count = len(self.bot.guilds) if self.bot.is_ready() else 0
-                user_count = len(self.bot.users) if self.bot.is_ready() else 0
+                # Check database sync events cleanup
+                await self.cleanup_old_sync_events()
                 
-                # Emit performance event
-                await self.sync_manager.emit_event(SyncEvent(
-                    event_type=SyncEventType.SYSTEM_STATUS_CHANGE,
-                    priority=EventPriority.LOW,
-                    data={
-                        'cpu_percent': cpu_percent,
-                        'memory_percent': memory.percent,
-                        'disk_percent': (disk.used / disk.total) * 100,
-                        'bot_latency_ms': bot_latency,
-                        'guild_count': guild_count,
-                        'user_count': user_count,
-                        'bot_ready': self.bot.is_ready()
-                    },
-                    timestamp=time.time(),
-                    source_system='system_monitor'
-                ))
-                
-                await asyncio.sleep(10)  # Update every 10 seconds
+                # Sleep for 5 minutes between health checks
+                await asyncio.sleep(300)
                 
             except Exception as e:
-                self.bot.add_error(f"Performance monitoring error: {e}")
-                await asyncio.sleep(30)  # Wait longer on error
+                self.bot.add_error(f"Sync health monitor error: {e}")
+                await asyncio.sleep(60)
     
-    async def _emit_performance_event(self, metric_type: str, data: Dict[str, Any]):
-        """Emit a performance metric event"""
-        await self.sync_manager.emit_event(SyncEvent(
-            event_type=SyncEventType.PERFORMANCE_METRIC,
-            priority=EventPriority.LOW,
-            data={
-                'metric_type': metric_type,
-                **data
-            },
-            timestamp=time.time(),
-            source_system='performance_monitor'
-        ))
+    async def cleanup_old_sync_events(self):
+        """Clean up old sync events from database"""
+        try:
+            # Keep only last 24 hours of sync events
+            cutoff_time = time.time() - (24 * 60 * 60)
+            
+            cursor = await self.bot.db.execute("""
+                DELETE FROM sync_events WHERE timestamp < ?
+            """, (cutoff_time,))
+            
+            deleted_count = cursor.rowcount
+            await self.bot.db.commit()
+            
+            if deleted_count > 0:
+                self.bot.add_log(f"🧹 Cleaned up {deleted_count} old sync events")
+                
+        except Exception as e:
+            self.bot.add_error(f"Sync event cleanup failed: {e}")
     
-    def get_hook(self, hook_name: str):
-        """Get an integration hook by name"""
-        return self.integration_hooks.get(hook_name)
+    async def force_sync_user_data(self, user_id: int) -> Dict[str, Any]:
+        """Force synchronization of all user data across systems"""
+        try:
+            # Collect user data from all systems
+            user_data = {}
+            
+            # Economy data
+            cursor = await self.bot.db.execute("""
+                SELECT fragments, data_shards, level, xp, daily_streak 
+                FROM players WHERE user_id = ?
+            """, (user_id,))
+            economy_data = await cursor.fetchone()
+            
+            if economy_data:
+                user_data['economy'] = {
+                    'fragments': economy_data[0],
+                    'data_shards': economy_data[1], 
+                    'level': economy_data[2],
+                    'xp': economy_data[3],
+                    'daily_streak': economy_data[4]
+                }
+            
+            # User stats
+            cursor = await self.bot.db.execute("""
+                SELECT commands_used, songs_queued, achievements_earned, games_completed
+                FROM user_stats WHERE user_id = ?
+            """, (user_id,))
+            stats_data = await cursor.fetchone()
+            
+            if stats_data:
+                user_data['stats'] = {
+                    'commands_used': stats_data[0],
+                    'songs_queued': stats_data[1],
+                    'achievements_earned': stats_data[2], 
+                    'games_completed': stats_data[3]
+                }
+            
+            # Create sync event for forced update
+            sync_event = SyncEvent(
+                event_type=SyncEventType.USER_INTERACTION,
+                priority=EventPriority.HIGH,
+                data=user_data,
+                timestamp=time.time(),
+                source_system='sync_integration',
+                user_id=user_id
+            )
+            
+            await self.sync_manager.emit_event(sync_event)
+            
+            return user_data
+            
+        except Exception as e:
+            self.bot.add_error(f"Force sync user data failed: {e}")
+            return {}
     
-    async def emit_user_interaction(self, interaction_type: str, user_id: int, guild_id: Optional[int], data: Dict[str, Any]):
-        """Emit a user interaction event"""
-        await self.sync_manager.emit_event(SyncEvent(
-            event_type=SyncEventType.USER_INTERACTION,
-            priority=EventPriority.MEDIUM,
-            data={
-                'interaction_type': interaction_type,
-                **data
-            },
-            timestamp=time.time(),
-            source_system='discord_bot',
-            user_id=user_id,
-            guild_id=guild_id
-        ))
+    async def sync_system_status(self):
+        """Sync overall system status to external platforms"""
+        try:
+            # Collect bot system status
+            status_data = {
+                'bot_online': self.bot.is_ready(),
+                'guilds': len(self.bot.guilds) if hasattr(self.bot, 'guilds') else 0,
+                'users': sum(g.member_count for g in self.bot.guilds) if hasattr(self.bot, 'guilds') else 0,
+                'uptime': time.time() - getattr(self.bot, 'start_time', time.time()),
+                'sync_events_processed': self.sync_manager.events_processed,
+                'sync_active_connections': len(self.sync_manager.websocket_connections),
+                'timestamp': time.time()
+            }
+            
+            # Broadcast system status
+            await self.broadcast_to_external_systems('system_status', status_data)
+            
+            # Send to API
+            if hasattr(self.bot, 'send_status_to_api'):
+                await self.bot.send_status_to_api({
+                    'type': 'system_status',
+                    'data': status_data
+                })
+            
+        except Exception as e:
+            self.bot.add_error(f"System status sync failed: {e}")
     
-    async def emit_music_event(self, event_type: str, user_id: int, data: Dict[str, Any]):
-        """Emit music-related events"""
-        sync_event_type = {
-            'queued': SyncEventType.MUSIC_QUEUED,
-            'now_playing': SyncEventType.NOW_PLAYING_CHANGED,
-            'playlist_updated': SyncEventType.PLAYLIST_UPDATED
-        }.get(event_type, SyncEventType.USER_INTERACTION)
-        
-        await self.sync_manager.emit_event(SyncEvent(
-            event_type=sync_event_type,
-            priority=EventPriority.MEDIUM,
-            data=data,
-            timestamp=time.time(),
-            source_system='music_system',
-            user_id=user_id
-        ))
-    
-    async def emit_gaming_event(self, event_type: str, user_id: int, data: Dict[str, Any]):
-        """Emit gaming-related events"""
-        await self.sync_manager.emit_event(SyncEvent(
-            event_type=SyncEventType.GAME_SESSION_START if event_type == 'game_start' else SyncEventType.USER_INTERACTION,
-            priority=EventPriority.HIGH,
-            data={
-                'gaming_event': event_type,
-                **data
-            },
-            timestamp=time.time(),
-            source_system='gaming_system',
-            user_id=user_id
-        ))
-
-# Integration helper functions for cogs
-async def sync_hub_interaction(bot, interaction, hub_category: str, view_name: str):
-    """Helper to sync hub interactions"""
-    if hasattr(bot, 'sync_integration'):
-        hook = bot.sync_integration.get_hook(f'{hub_category}_hub')
-        if hook:
-            await hook(interaction, view_name)
-
-async def sync_ai_response(bot, user_id: int, prompt: str, response: str, mode: str, generation_time: float):
-    """Helper to sync AI responses"""
-    if hasattr(bot, 'sync_integration'):
-        hook = bot.sync_integration.get_hook('ai_response')
-        if hook:
-            await hook(user_id, prompt, response, mode, generation_time)
-
-async def sync_economy_transaction(bot, user_id: int, transaction_type: str, amount: int, new_balance: int):
-    """Helper to sync economy transactions"""
-    if hasattr(bot, 'sync_integration'):
-        hook = bot.sync_integration.get_hook('fragment_transaction')
-        if hook:
-            await hook(user_id, transaction_type, amount, new_balance)
-
-async def sync_achievement_unlock(bot, user_id: int, achievement_name: str, fragment_reward: int):
-    """Helper to sync achievement unlocks"""
-    if hasattr(bot, 'sync_integration'):
-        hook = bot.sync_integration.get_hook('achievement_unlock')
-        if hook:
-            await hook(user_id, achievement_name, fragment_reward)
+    def get_integration_stats(self) -> Dict[str, Any]:
+        """Get sync integration statistics"""
+        return {
+            'handlers_registered': len(self.integration_handlers),
+            'last_health_check': self.last_sync_timestamps.get('health_check', 0),
+            'sync_manager_active': self.sync_manager._running if self.sync_manager else False,
+            'sync_events_processed': self.sync_manager.events_processed if self.sync_manager else 0,
+            'integration_layer_active': True
+        }
