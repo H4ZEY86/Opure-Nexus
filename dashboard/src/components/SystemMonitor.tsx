@@ -23,7 +23,7 @@ import {
   Thermometer,
   Activity,
   MemoryStick,
-  Gpu,
+  HardDisk,
   TrendingUp
 } from 'lucide-react'
 
@@ -275,7 +275,7 @@ export default function SystemMonitor({ realTimeData }: { realTimeData: any }) {
         
         <SystemCard
           title="RTX 5070 Ti"
-          icon={Gpu}
+          icon={HardDisk}
           value={systemData.gpu.usage}
           unit="%"
           percentage={systemData.gpu.usage}
@@ -316,7 +316,7 @@ export default function SystemMonitor({ realTimeData }: { realTimeData: any }) {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-gpu-green/20 rounded-xl border-2 border-gpu-green">
-              <Gpu size={24} className="text-gpu-green" />
+              <HardDisk size={24} className="text-gpu-green" />
             </div>
             <div>
               <h3 className="text-xl font-mono font-bold text-gpu">

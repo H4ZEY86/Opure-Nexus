@@ -30,20 +30,20 @@ export function useBotData() {
   const websocket = useBotWebSocket()
 
   useEffect(() => {
+    // Update from WebSocket data when available
+    if (websocket.botData) {
+      setBotData(prev => ({
+        ...MOCK_BOT_DATA,
+        ...websocket.botData
+      }))
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
     const fetchBotData = async () => {
       try {
         setIsLoading(true)
-        
-        // Try WebSocket data first
-        if (websocket.botData) {
-          setBotData({
-            ...MOCK_BOT_DATA,
-            ...websocket.botData
-          })
-          setError(null)
-          setIsLoading(false)
-          return
-        }
         
         // Try to fetch from local bot API
         try {
@@ -64,7 +64,7 @@ export function useBotData() {
             return
           }
         } catch (fetchError) {
-          console.warn('Local bot API unavailable, using WebSocket or mock data')
+          console.warn('Local bot API unavailable, using mock data')
         }
         
         // Fallback to enhanced mock data
@@ -88,28 +88,37 @@ export function useBotData() {
       }
     }
 
-    // Update when WebSocket data changes
-    if (websocket.botData) {
-      setBotData({
-        ...MOCK_BOT_DATA,
-        ...websocket.botData
-      })
-      setError(null)
-      setIsLoading(false)
-    } else {
-      // Initial fetch
-      fetchBotData()
-    }
+    // Only fetch if no WebSocket data
+    fetchBotData()
 
-    // Refresh every 30 seconds as fallback
+    // Refresh every 30 seconds as fallback when not connected to WebSocket
     const interval = setInterval(() => {
-      if (!websocket.isConnected) {
+      if (!websocket.isConnected && !websocket.botData) {
         fetchBotData()
       }
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [websocket.botData, websocket.isConnected, websocket.error])
+  }, []) // Empty dependency array - only run once
+
+  // Separate effect for WebSocket data updates
+  useEffect(() => {
+    if (websocket.botData) {
+      setBotData(prev => ({
+        ...MOCK_BOT_DATA,
+        ...websocket.botData
+      }))
+      setError(null)
+      setIsLoading(false)
+    }
+  }, [websocket.botData])
+
+  // Separate effect for connection state changes
+  useEffect(() => {
+    if (websocket.error) {
+      setError(websocket.error)
+    }
+  }, [websocket.error])
 
   return { 
     botData, 

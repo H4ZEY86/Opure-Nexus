@@ -1127,14 +1127,21 @@ class OpureBot(commands.Bot):
                 # Save quests to database
                 for quest in quests[:3]:  # Max 3 quests
                     quest_id = f"{user_id}_{today}_{quest['name'].replace(' ', '_').lower()}"
+                    
+                    # Ensure all values are properly typed for SQLite
+                    quest_name = str(quest['name'])
+                    quest_description = str(quest['description'])
+                    quest_type = str(quest.get('type', 'messages'))
+                    quest_target = int(quest.get('target', 10))
+                    quest_reward = int(quest.get('reward', 50))
+                    
                     await self.db.execute("""
                         INSERT OR IGNORE INTO user_quests 
                         (quest_id, user_id, name, description, quest_type, target, current_progress, reward, status, date_assigned)
                         VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'active', ?)
                     """, (
-                        quest_id, user_id, quest['name'], quest['description'],
-                        quest.get('type', 'messages'), quest.get('target', 10),
-                        quest.get('reward', 50), today
+                        quest_id, user_id, quest_name, quest_description,
+                        quest_type, quest_target, quest_reward, today
                     ))
                 
                 await self.db.commit()

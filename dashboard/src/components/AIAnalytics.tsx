@@ -15,7 +15,7 @@ import {
   Target,
   Sparkles,
   Bot,
-  Memory
+  MemoryStickStick
 } from 'lucide-react'
 
 interface AIData {
@@ -209,7 +209,7 @@ export default function AIAnalytics({ realTimeData }: { realTimeData: any }) {
   }
 
   const performanceRadarData = {
-    labels: ['Speed', 'Throughput', 'GPU', 'Memory', 'Cache'],
+    labels: ['Speed', 'Throughput', 'GPU', 'MemoryStick', 'Cache'],
     datasets: [{
       label: 'Performance Metrics',
       data: [
@@ -327,12 +327,12 @@ export default function AIAnalytics({ realTimeData }: { realTimeData: any }) {
         />
         
         <AIMetricCard
-          title="Memory Usage"
-          icon={Memory}
+          title="MemoryStick Usage"
+          icon={MemoryStick}
           value={aiData.model.memory_usage}
           unit="GB"
           color="bg-cyber-neon/20 border-cyber-neon"
-          subtitle="Model Memory"
+          subtitle="Model MemoryStick"
         />
         
         <AIMetricCard
@@ -362,7 +362,7 @@ export default function AIAnalytics({ realTimeData }: { realTimeData: any }) {
               CHROMADB VECTOR DATABASE
             </h3>
             <p className="text-cyber-purple font-mono text-sm">
-              Enhanced Memory & Knowledge Retrieval System
+              Enhanced MemoryStick & Knowledge Retrieval System
             </p>
           </div>
         </div>
@@ -409,7 +409,7 @@ export default function AIAnalytics({ realTimeData }: { realTimeData: any }) {
             </p>
           </div>
           <div className="glass-panel p-4">
-            <h4 className="font-mono text-cyber-neon mb-2">Memory Usage</h4>
+            <h4 className="font-mono text-cyber-neon mb-2">MemoryStick Usage</h4>
             <p className="text-3xl font-mono font-bold text-white">
               {aiData.chromadb.memory_used}GB
             </p>
