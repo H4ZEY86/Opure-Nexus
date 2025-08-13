@@ -1314,19 +1314,21 @@ async def on_ready():
     bot.add_log(f"System Architecture: {os.uname().machine if hasattr(os, 'uname') else 'Windows'}")
     bot.add_log("―" * 60)
     bot.add_log("--- Starting Command Sync (Activity-Compatible Mode) ---")
-    try:
-        # Skip any global command operations that might interfere with Discord Activities
-        bot.add_log("⚠️ Skipping global command operations (Activity-safe mode)")
-        
+    try:        
         if not GUILD_IDS:
             bot.add_log("⚠️ No GUILD_IDS found in .env - commands will not be synced!")
         else:
             for guild_id in GUILD_IDS:
                 guild = discord.Object(id=guild_id)
                 try:
-                    # Only sync guild commands, never clear or modify global commands
+                    # Sync ALL commands including new hub commands
                     synced_commands = await bot.tree.sync(guild=guild)
                     bot.add_log(f"✓ Synced {len(synced_commands)} commands to Guild ID: {guild_id}")
+                    
+                    # List the actual commands
+                    command_names = [cmd.name for cmd in synced_commands]
+                    bot.add_log(f"📋 Commands: {', '.join(command_names)}")
+                    
                 except discord.HTTPException as e:
                     if "Entry Point command" in str(e) or "50240" in str(e):
                         bot.add_log(f"⚠️ Activity Entry Point detected for Guild {guild_id} - commands may already be synced")
@@ -1335,6 +1337,8 @@ async def on_ready():
                         bot.add_error(f"Command sync error for Guild {guild_id}: {e}")
     except Exception as e:
         bot.add_error(f"FAILED to sync commands: {e}")
+        import traceback
+        bot.add_error(f"Traceback: {traceback.format_exc()}")
     bot.add_log("--- Finished Command Sync ---\n")
 
     # Initialize production optimizations for RTX 5070 Ti
@@ -1688,26 +1692,12 @@ def shutdown_sequence():
 
 async def main():
     try:
-        async with bot:
-            # Initialize GPU AI Engine first
-            console.print(">>> [bold green]Initializing GPU AI Engine...[/]")
-            # gpu_engine = await initialize_gpu_engine()  # Disabled for now
-            gpu_engine = None  # Temporary fallback
-            if gpu_engine:
-                bot.gpu_engine = gpu_engine
-                console.print("[OK] [bold green]GPU AI Engine ready for bulletproof performance![/]")
-            else:
-                console.print("[WARN] [yellow]GPU AI Engine initialization failed - falling back to CPU[/]")
-            
+        async with bot:            
             bot.dashboard_task = asyncio.create_task(run_live_dashboard())
             await bot.start(BOT_TOKEN)
     except KeyboardInterrupt:
         pass
-    finally:
-        # Clean shutdown GPU resources
-        if hasattr(bot, 'gpu_engine') and bot.gpu_engine:
-            await bot.gpu_engine.shutdown()
-        
+    finally:        
         if hasattr(bot, 'dashboard_task') and bot.dashboard_task:
             bot.dashboard_task.cancel()
             try:

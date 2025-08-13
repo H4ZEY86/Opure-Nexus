@@ -14,10 +14,16 @@ function testServerHealth() {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
+
                 if (res.statusCode === 200) {
-                    console.log('✅ Server Health: OK');
-                    console.log(`   Response: ${JSON.parse(data).status}\n`);
-                    resolve(true);
+                    try {
+                        console.log('✅ Server Health: OK');
+                        console.log(`   Response: ${JSON.parse(data).status}\n`);
+                        resolve(true);
+                    } catch (e) {
+                        console.log(`❌ Server Health: Invalid JSON response\n`);
+                        resolve(false);
+                    }
                 } else {
                     console.log(`❌ Server Health: Failed (${res.statusCode})\n`);
                     resolve(false);

@@ -1,32 +1,68 @@
 import React, { useState } from 'react'
 import { useDiscord } from '../contexts/DiscordContextDirect'
 import { GameDatabase } from '../lib/supabase'
+import CubeRunner3D from '../components/games/CubeRunner3D'
+import SpaceShooter3D from '../components/games/SpaceShooter3D'
+import AIDungeonQuest from '../components/games/AIDungeonQuest'
+import AIMystery from '../components/games/AIMystery'
 
-// Simple 2D games that work in any browser
+// Enhanced games collection with 2D, 3D, and AI adventures
 const GAMES = [
   {
     id: 'clicker',
     name: '🖱️ Power Clicker',
     description: 'Click as fast as you can!',
-    color: '#FF6B6B'
+    color: '#FF6B6B',
+    type: '2d'
   },
   {
     id: 'memory',
     name: '🧠 Memory Test', 
     description: 'Remember the sequence!',
-    color: '#4ECDC4'
+    color: '#4ECDC4',
+    type: '2d'
   },
   {
     id: 'reaction',
     name: '⚡ Reaction Time',
     description: 'How fast are your reflexes?',
-    color: '#45B7D1'
+    color: '#45B7D1',
+    type: '2d'
   },
   {
     id: 'typing',
     name: '⌨️ Speed Typing',
     description: 'Type the words quickly!',
-    color: '#96CEB4'
+    color: '#96CEB4',
+    type: '2d'
+  },
+  {
+    id: 'cube-runner',
+    name: '🎯 3D Cube Runner',
+    description: 'Navigate through 3D obstacles!',
+    color: '#9B59B6',
+    type: '3d'
+  },
+  {
+    id: 'space-shooter',
+    name: '🚀 Space Shooter 3D',
+    description: 'Blast enemies in space!',
+    color: '#E74C3C',
+    type: '3d'
+  },
+  {
+    id: 'ai-dungeon',
+    name: '🏰 AI Dungeon Quest',
+    description: 'Text adventure with AI storytelling',
+    color: '#2ECC71',
+    type: 'ai'
+  },
+  {
+    id: 'ai-mystery',
+    name: '🕵️ AI Mystery Solver',
+    description: 'Solve mysteries with AI guidance',
+    color: '#F39C12',
+    type: 'ai'
   }
 ]
 
@@ -71,6 +107,164 @@ function ClickerGame({ onGameEnd }: { onGameEnd: (score: number) => void }) {
           <div>
             <div className="text-3xl mb-4">🎉 GAME OVER!</div>
             <div className="text-xl">Final Score: {score} clicks</div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Simple Reaction Time Game
+function ReactionGame({ onGameEnd }: { onGameEnd: (score: number) => void }) {
+  const [waiting, setWaiting] = useState(true)
+  const [ready, setReady] = useState(false)
+  const [startTime, setStartTime] = useState(0)
+  const [reactionTime, setReactionTime] = useState(0)
+  const [gameOver, setGameOver] = useState(false)
+  const [round, setRound] = useState(1)
+  const [totalTime, setTotalTime] = useState(0)
+
+  const startRound = () => {
+    setWaiting(true)
+    setReady(false)
+    const delay = 2000 + Math.random() * 3000 // 2-5 second delay
+    setTimeout(() => {
+      setReady(true)
+      setStartTime(Date.now())
+    }, delay)
+  }
+
+  React.useEffect(() => {
+    if (round <= 5) {
+      startRound()
+    } else {
+      setGameOver(true)
+      onGameEnd(Math.round(totalTime / 5))
+    }
+  }, [round])
+
+  const handleClick = () => {
+    if (!ready) {
+      // Clicked too early
+      setGameOver(true)
+      onGameEnd(999) // Penalty score
+      return
+    }
+
+    const time = Date.now() - startTime
+    setReactionTime(time)
+    setTotalTime(prev => prev + time)
+    setRound(prev => prev + 1)
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+      <div className="text-center text-white">
+        <h2 className="text-4xl font-bold mb-4">⚡ REACTION TIME</h2>
+        
+        {gameOver ? (
+          <div>
+            <div className="text-3xl mb-4">⚡ COMPLETE!</div>
+            <div className="text-xl">Average: {Math.round(totalTime / (round - 1))}ms</div>
+          </div>
+        ) : (
+          <div>
+            <div className="text-2xl mb-8">Round {round}/5</div>
+            
+            {waiting && !ready && (
+              <div className="text-xl mb-8">Wait for it...</div>
+            )}
+            
+            {ready && (
+              <div className="text-2xl mb-8 text-green-300">NOW!</div>
+            )}
+            
+            <button
+              onClick={handleClick}
+              className={`px-12 py-6 rounded-full text-2xl font-bold transition-all ${
+                ready ? 'bg-green-500 hover:bg-green-400' : 'bg-red-500'
+              }`}
+            >
+              {ready ? 'CLICK!' : 'WAIT...'}
+            </button>
+            
+            {reactionTime > 0 && (
+              <div className="mt-4 text-xl">Last: {reactionTime}ms</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Speed Typing Game
+function TypingGame({ onGameEnd }: { onGameEnd: (score: number) => void }) {
+  const words = ['react', 'typescript', 'discord', 'gaming', 'opure', 'coding', 'javascript', 'developer', 'awesome', 'challenge']
+  const [currentWord, setCurrentWord] = useState('')
+  const [input, setInput] = useState('')
+  const [score, setScore] = useState(0)
+  const [timeLeft, setTimeLeft] = useState(30)
+  const [gameActive, setGameActive] = useState(true)
+
+  React.useEffect(() => {
+    setCurrentWord(words[Math.floor(Math.random() * words.length)])
+  }, [])
+
+  React.useEffect(() => {
+    if (timeLeft <= 0) {
+      setGameActive(false)
+      onGameEnd(score)
+      return
+    }
+    const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [timeLeft, score, onGameEnd])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (input.toLowerCase() === currentWord.toLowerCase()) {
+      setScore(score + 1)
+      setCurrentWord(words[Math.floor(Math.random() * words.length)])
+    }
+    setInput('')
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center">
+      <div className="text-center text-white">
+        <h2 className="text-4xl font-bold mb-4">⌨️ SPEED TYPING</h2>
+        <div className="text-2xl mb-4">Score: {score}</div>
+        <div className="text-xl mb-8">Time: {timeLeft}s</div>
+        
+        {gameActive ? (
+          <div>
+            <div className="text-4xl font-mono mb-8 bg-black/30 p-4 rounded">
+              {currentWord}
+            </div>
+            
+            <form onSubmit={handleSubmit}>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                className="text-2xl p-4 rounded text-black text-center mb-4 w-64"
+                placeholder="Type here..."
+                autoFocus
+              />
+              <br />
+              <button
+                type="submit"
+                className="bg-white text-green-500 px-6 py-3 rounded font-bold hover:scale-105"
+              >
+                Submit
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div>
+            <div className="text-3xl mb-4">⌨️ GAME OVER!</div>
+            <div className="text-xl">Words typed: {score}</div>
           </div>
         )}
       </div>
@@ -256,21 +450,30 @@ export default function SimpleGamingHub() {
     return <MemoryGame onGameEnd={handleGameEnd} />
   }
 
-  if (selectedGame === 'reaction' || selectedGame === 'typing') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-500 to-blue-500 flex items-center justify-center">
-        <div className="text-center text-white">
-          <h2 className="text-4xl font-bold mb-4">🚧 Coming Soon!</h2>
-          <p className="text-xl mb-8">This game is being built...</p>
-          <button
-            onClick={() => setSelectedGame(null)}
-            className="bg-white text-blue-500 px-6 py-3 rounded-lg font-bold hover:scale-105"
-          >
-            ← Back to Games
-          </button>
-        </div>
-      </div>
-    )
+  if (selectedGame === 'reaction') {
+    return <ReactionGame onGameEnd={handleGameEnd} />
+  }
+  
+  if (selectedGame === 'typing') {
+    return <TypingGame onGameEnd={handleGameEnd} />
+  }
+
+  // 3D Games
+  if (selectedGame === 'cube-runner') {
+    return <CubeRunner3D onGameEnd={handleGameEnd} />
+  }
+  
+  if (selectedGame === 'space-shooter') {
+    return <SpaceShooter3D onGameEnd={handleGameEnd} />
+  }
+
+  // AI Text Adventures
+  if (selectedGame === 'ai-dungeon') {
+    return <AIDungeonQuest onGameEnd={handleGameEnd} />
+  }
+  
+  if (selectedGame === 'ai-mystery') {
+    return <AIMystery onGameEnd={handleGameEnd} />
   }
 
   // Show leaderboard view
@@ -340,22 +543,70 @@ export default function SimpleGamingHub() {
           </button>
         </div>
 
-        {/* Games Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          {GAMES.map((game) => (
-            <button
-              key={game.id}
-              onClick={() => setSelectedGame(game.id)}
-              className="p-6 rounded-2xl text-white text-left hover:scale-105 active:scale-95 transition-transform"
-              style={{ backgroundColor: game.color }}
-            >
-              <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
-              <p className="text-white/90">{game.description}</p>
-              <div className="mt-4 text-sm text-white/80">
-                Click to play →
-              </div>
-            </button>
-          ))}
+        {/* Games Grid - Organized by Type */}
+        <div className="space-y-8">
+          {/* 2D Games */}
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-4 text-center">🎮 2D Games</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+              {GAMES.filter(game => game.type === '2d').map((game) => (
+                <button
+                  key={game.id}
+                  onClick={() => setSelectedGame(game.id)}
+                  className="p-6 rounded-2xl text-white text-left hover:scale-105 active:scale-95 transition-transform"
+                  style={{ backgroundColor: game.color }}
+                >
+                  <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
+                  <p className="text-white/90">{game.description}</p>
+                  <div className="mt-4 text-sm text-white/80">
+                    ✅ Ready to play →
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3D Games */}
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-4 text-center">🎯 3D Games</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+              {GAMES.filter(game => game.type === '3d').map((game) => (
+                <button
+                  key={game.id}
+                  onClick={() => setSelectedGame(game.id)}
+                  className="p-6 rounded-2xl text-white text-left hover:scale-105 active:scale-95 transition-transform"
+                  style={{ backgroundColor: game.color }}
+                >
+                  <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
+                  <p className="text-white/90">{game.description}</p>
+                  <div className="mt-4 text-sm text-white/80">
+                    ✅ Ready to play →
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* AI Games */}
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-4 text-center">🧠 AI Adventures</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+              {GAMES.filter(game => game.type === 'ai').map((game) => (
+                <button
+                  key={game.id}
+                  onClick={() => setSelectedGame(game.id)}
+                  className="p-6 rounded-2xl text-white text-left hover:scale-105 active:scale-95 transition-transform"
+                  style={{ backgroundColor: game.color }}
+                >
+                  <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
+                  <p className="text-white/90">{game.description}</p>
+                  <div className="mt-4 text-sm text-white/80">
+                    ✅ AI-powered →
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Recent Scores */}
