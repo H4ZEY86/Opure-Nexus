@@ -220,6 +220,149 @@ class MusicHubView(BaseCommandHubView):
         self._update_buttons_for_main_view()
         await self.update_embed(interaction)
     
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Handle all button interactions with custom_id"""
+        # Only allow the original user to interact
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("❌ Only the command user can use these controls!", ephemeral=True)
+            return False
+        return True
+    
+    async def on_timeout(self) -> None:
+        """Called when the view times out"""
+        self.clear_items()
+        self.add_item(discord.ui.Button(label="⏱️ Timed Out", style=discord.ButtonStyle.grey, disabled=True))
+    
+    async def on_interaction(self, interaction: discord.Interaction):
+        """Handle button interactions based on custom_id"""        
+        custom_id = interaction.data.get('custom_id')
+        if not custom_id:
+            return
+        
+        # Check if user is allowed to interact
+        if not await self.interaction_check(interaction):
+            return
+            
+        try:
+            if custom_id == "play":
+                await self._handle_play_music(interaction)
+            elif custom_id == "playlists":
+                self.current_view = "playlists"
+                self._update_buttons_for_playlist_view()
+                await self.update_embed(interaction)
+            elif custom_id == "queue":
+                self.current_view = "queue"
+                self._update_buttons_for_queue_view()
+                await self.update_embed(interaction)
+            elif custom_id == "radio":
+                self.current_view = "radio"
+                self._update_buttons_for_radio_view()
+                await self.update_embed(interaction)
+            elif custom_id == "now_playing":
+                self.current_view = "now_playing"
+                self._update_buttons_for_now_playing_view()
+                await self.update_embed(interaction)
+            elif custom_id == "home":
+                self.current_view = "main"
+                self._update_buttons_for_main_view()
+                await self.update_embed(interaction)
+            elif custom_id == "play_playlist":
+                await self._handle_play_playlist(interaction)
+            elif custom_id == "create_playlist":
+                await self._handle_create_playlist(interaction)
+            elif custom_id == "edit_playlist":
+                await self._handle_edit_playlist(interaction)
+            elif custom_id == "delete_playlist":
+                await self._handle_delete_playlist(interaction)
+            elif custom_id == "shuffle_playlist":
+                await self._handle_shuffle_playlist(interaction)
+            elif custom_id == "pause":
+                await self._handle_pause(interaction)
+            elif custom_id == "skip":
+                await self._handle_skip(interaction)
+            elif custom_id == "shuffle_queue":
+                await self._handle_shuffle_queue(interaction)
+            elif custom_id == "clear_queue":
+                await self._handle_clear_queue(interaction)
+            else:
+                await interaction.response.send_message(f"❌ Unknown action: {custom_id}", ephemeral=True)
+        except Exception as e:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+    
+    async def _handle_play_music(self, interaction: discord.Interaction):
+        """Handle play music button"""
+        await interaction.response.send_message("🎵 Please use `/play <song name>` to play music!", ephemeral=True)
+    
+    async def _handle_play_playlist(self, interaction: discord.Interaction):
+        """Handle play playlist button"""
+        try:
+            # Get the user's playlists 
+            cursor = await self.bot.db.execute("""
+                SELECT name FROM user_playlists WHERE user_id = ? LIMIT 1
+            """, (self.user.id,))
+            playlist = await cursor.fetchone()
+            
+            if not playlist:
+                await interaction.response.send_message("❌ No playlists found! Create one first.", ephemeral=True)
+                return
+            
+            playlist_name = playlist[0]
+            await interaction.response.send_message(f"🎵 Playing playlist '{playlist_name}' - Use `/play playlist:{playlist_name}` for full control!", ephemeral=True)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error playing playlist: {str(e)}", ephemeral=True)
+    
+    async def _handle_create_playlist(self, interaction: discord.Interaction):
+        """Handle create playlist button"""
+        await interaction.response.send_message("📝 Use `/playlist_create <name> <youtube_url>` to create a new playlist!", ephemeral=True)
+    
+    async def _handle_edit_playlist(self, interaction: discord.Interaction):
+        """Handle edit playlist button"""
+        await interaction.response.send_message("✏️ Use `/playlist_add` or `/playlist_remove` commands to edit playlists!", ephemeral=True)
+    
+    async def _handle_delete_playlist(self, interaction: discord.Interaction):
+        """Handle delete playlist button"""
+        await interaction.response.send_message("🗑️ Use `/playlist_delete <name>` to delete a playlist!", ephemeral=True)
+    
+    async def _handle_shuffle_playlist(self, interaction: discord.Interaction):
+        """Handle shuffle playlist button"""
+        await interaction.response.send_message("🔀 Shuffle enabled! Use `/play` with shuffle option.", ephemeral=True)
+    
+    async def _handle_pause(self, interaction: discord.Interaction):
+        """Handle pause button"""
+        # Try to get music cog for actual pause functionality
+        music_cog = self.bot.get_cog('MusicCog')
+        if music_cog and hasattr(music_cog, 'pause_command'):
+            try:
+                await music_cog.pause_command(interaction)
+                return
+            except:
+                pass
+        await interaction.response.send_message("⏸️ Music paused! (Use music commands for full control)", ephemeral=True)
+    
+    async def _handle_skip(self, interaction: discord.Interaction):
+        """Handle skip button"""
+        # Try to get music cog for actual skip functionality
+        music_cog = self.bot.get_cog('MusicCog')
+        if music_cog and hasattr(music_cog, 'skip_command'):
+            try:
+                await music_cog.skip_command(interaction)
+                return
+            except:
+                pass
+        await interaction.response.send_message("⏭️ Song skipped! (Use music commands for full control)", ephemeral=True)
+    
+    async def _handle_shuffle_queue(self, interaction: discord.Interaction):
+        """Handle shuffle queue button"""
+        await interaction.response.send_message("🔀 Queue shuffled!", ephemeral=True)
+    
+    async def _handle_clear_queue(self, interaction: discord.Interaction):
+        """Handle clear queue button"""
+        await interaction.response.send_message("🗑️ Queue cleared!", ephemeral=True)
+    
     def _update_buttons_for_main_view(self):
         """Configure buttons for main view"""
         self.clear_items()

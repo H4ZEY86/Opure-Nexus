@@ -409,6 +409,12 @@ class OpureBot(commands.Bot):
             try:
                 await self.load_extension(f"cogs.{cog}")
                 self.add_log(f"✓ Successfully loaded Cog: {cog}")
+                
+                # Debug: Check if commands were added
+                tree_commands = self.tree.get_commands(guild=None)
+                command_names = [cmd.name for cmd in tree_commands]
+                self.add_log(f"   Commands after loading {cog}: {', '.join(command_names) if command_names else 'NONE'}")
+                
             except Exception as e:
                 self.add_error(f"FAILED to load cog '{cog}': {e}\n{traceback.format_exc()}")
         self.add_log("--- Finished Cog Loading ---\n")
@@ -1321,13 +1327,27 @@ async def on_ready():
             for guild_id in GUILD_IDS:
                 guild = discord.Object(id=guild_id)
                 try:
-                    # Sync ALL commands including new hub commands
+                    # Debug: Show what commands are in the tree before syncing
+                    tree_commands = bot.tree.get_commands(guild=guild)
+                    tree_names = [cmd.name for cmd in tree_commands]
+                    bot.add_log(f"🔍 Guild commands in tree: {', '.join(tree_names) if tree_names else 'NONE'}")
+                    
+                    # Also check global commands
+                    global_commands = bot.tree.get_commands(guild=None)
+                    global_names = [cmd.name for cmd in global_commands]
+                    bot.add_log(f"🌐 Global commands in tree: {', '.join(global_names) if global_names else 'NONE'}")
+                    
+                    # Copy global commands to guild
+                    bot.add_log(f"📋 Copying {len(global_commands)} global commands to guild...")
+                    bot.tree.copy_global_to(guild=guild)
+                    
+                    # Sync guild commands (which now includes copied global commands)
                     synced_commands = await bot.tree.sync(guild=guild)
                     bot.add_log(f"✓ Synced {len(synced_commands)} commands to Guild ID: {guild_id}")
                     
                     # List the actual commands
                     command_names = [cmd.name for cmd in synced_commands]
-                    bot.add_log(f"📋 Commands: {', '.join(command_names)}")
+                    bot.add_log(f"📋 Commands: {', '.join(command_names) if command_names else 'NONE'}")
                     
                 except discord.HTTPException as e:
                     if "Entry Point command" in str(e) or "50240" in str(e):
